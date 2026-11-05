@@ -1,6 +1,7 @@
 # Awesome Artillery — Design
 
-Date: 2026-11-05 · Target: Factorio 2.1.24+ with Space Age · Status: draft for approval
+Date: 2026-11-05, updated 2026-11-06 · Target: Factorio 2.1.24+ with Space Age ·
+Status: built (0.1.0, asteroid defense); more artillery features to come
 
 ## Intent
 
@@ -28,8 +29,10 @@ That is deliberate: placing turrets well is part of designing the ship.
 
 ## Non-goals
 
-- New turrets, shells, recipes, technologies or visible graphics. A possible v2 is a
-  kinetic "penetrator" shell for huge asteroids.
+- New turrets or visible graphics for asteroid defense. The one new building is the
+  targeting computer (a tinted radar). Later features are planned under the Awesome
+  Artillery name: new shell types (e.g. a kinetic "penetrator" for huge asteroids) and
+  flares to target demolishers.
 - Allowing artillery wagons on platforms. They are gravity-gated in vanilla and stay so.
 - Rebalancing asteroids.
 
@@ -208,44 +211,65 @@ must use `force.artillery_range_modifier` and not a hard-coded 224.
   were added. This is for the player's ship design, and worth a tip in the mod
   description.
 
-### Performance (profiled headless, platform speed 10, ~190 asteroids / ~175 decoys)
+### Performance (profiled headless, `perf` cases)
 
-Measured with `LuaProfiler` in the playtest build (`perf` cases):
+**Target:** platform speed up to 10 (~600 km/s), which is the stress case. Higher speeds
+need heavily modded ships. Spikes are to be avoided at any speed.
 
-| | Per update (every 10 ticks) | Per asteroid |
+How the cost came down (speed 10, ~190 asteroids, the update then ran every 10 ticks):
+
+| | Per update | Per asteroid |
 |---|---|---|
 | First version | 5.37 ms | 29 µs |
 | + positions, settings and hull outline read once per update | 2.58 ms | 12 µs |
 | + closed-form aim from the turrets' centre | 1.88 ms | 8.6 µs |
 
-- The biggest single cost was the iterative per-turret lead (3.4 µs per asteroid). The
-  replacement solves |r + v·t| = shell_speed·t once, from the turrets' centre.
+- The biggest single cost was the iterative per-turret lead (3.4 µs per asteroid).
 - Measured: vanilla picks the **nearest** turret only 41% of the time, so per-turret
   leading bought nothing. Misses from the firing turret not being at the centre are left
   to shell-speed research (user's call).
 - Measured: asteroid velocity is constant while platform speed is constant. On a
   platform speed change, all asteroids shift by the same amount.
-- Single API calls cost 0.2–0.7 µs (`position` 0.36 µs, `teleport` 0.5–1.4 µs),
-  `LuaModData.data` copies the whole table on every access (cache it), and
-  `count_tiles_filtered` costs ~2 µs. A cached hull outline now avoids 94% of those calls.
-- Allocation: ~116 KB per update. An extra small table costs ~0.1 µs including GC, so
-  allocation is a minor factor.
-- Accuracy after the simplification: 2.0 kills per shell at natural speed (unchanged),
-  2.4 at speed 10.
+- Single API calls cost 0.2–0.7 µs (`teleport` 0.5–1.4 µs). `LuaModData.data` copies the
+  whole table on every access, so it is cached. `count_tiles_filtered` costs ~2 µs; the
+  cached hull outline avoids 94% of those calls.
+- Allocation is a minor factor (~0.1 µs per extra small table, GC included).
 
-Open performance work (on hold):
-- Spread updates across ticks: same total, no 2 ms spike every 10th tick.
-- Per-asteroid update interval from aim drift (speed × interval vs ~1 tile), with
-  asteroids that have no decoy updated less often.
+**Update interval.** Without correction, the aim held up to an interval of 60 ticks at
+natural speed and 30 at speed 10. Aiming for the middle of the interval (advancing the
+asteroid by `v · interval / 2`) roughly doubles the tolerable interval. The default is
+now **30 ticks**.
+
+**Spreading the work over the interval.** With everything done in one tick, the update
+spiked at interval 30: ~2.9 ms at speed 10, 13 ms at speed 50, 50 ms at speed 200. Now
+each asteroid is updated on its own tick of the interval. Same total work, measured on
+the same case:
+
+| Speed | Before (one tick in 30) | Now (every tick) | Asteroids per tick, max |
+|---|---|---|---|
+| 10 | 2.9 ms | 0.13 ms avg | 14 |
+| 50 | ~13 ms | 0.48 ms avg | 29 |
+
+The remaining spike is each platform's scan tick (finding and registering asteroids):
+~0.5 ms at speed 10, ~0.9 ms at speed 50. Profiling is now minimal: one timer per tick
+plus counts, because `LuaProfiler` values can't be compared in Lua, so the worst tick
+is reported as a count of asteroids. Factorio's own tools (F4 time usage,
+`--benchmark-verbose`) were judged not granular enough.
+
+Open performance work (on hold, TODO in `control.lua`):
+- Split the scan tick, e.g. one slice of the reach per tick.
 - Skip asteroids that can never get a decoy before doing any work: a name prefilter
-  (size, computer types, shell limit), and scanning only the computers' zones instead of
-  the full circle. This matters when computers restrict targeting: in the zone test,
-  almost all processed asteroids got no decoy.
+  (size, computer types, shell limit) and scanning only the computers' zones. This
+  matters when computers restrict targeting.
+- Update asteroids without a decoy less often.
 
-### Not yet verified
+### Not yet verified (needs a real game)
 
-- **Decoy invisibility**: blank sprites, no map icon, no alerts, no kill statistics.
-  The spike used the visible biter-spawner sprite.
+- Decoys don't show on the map (`not-on-map` flag) and raise no alerts.
+- Blueprint **setup** (the computer's settings saved into a blueprint, including a
+  library blueprint) and copy-paste of settings. Building from a tagged ghost is tested.
+- Save and load mid-flight, and multiplayer (no desyncs expected: all state is in
+  `storage`, and the only module-level state is the profiler and a prototype cache).
 
 ## How it works
 
@@ -264,8 +288,8 @@ Everything else is left to vanilla, and all of it was verified live:
 - **Turret controls, ammo, quality and research bonuses**, with no extra code.
 
 The shell damages whatever is within 4 tiles of where it lands; the decoy itself never
-takes damage. So only the asteroid's real health matters, and it is copied to the
-decoy on every update.
+takes damage. So only the asteroid's real health matters, and it is copied to the decoy
+whenever it changes.
 
 Rejected alternatives:
 
@@ -273,101 +297,108 @@ Rejected alternatives:
   have to reimplement overkill avoidance.
 - **`shooting_target`** doesn't work on artillery.
 - **Prototype flags on asteroids** don't make vanilla target them.
+- **An `ammo-turret` "space artillery"** also worked in a spike (vanilla shell, built-in
+  target leading, honours target masks), but would be a new turret. Kept in reserve.
 
 ### Prototypes (`data-final-fixes.lua`)
 
-- A new `trigger-target-type` named `aa-decoy`.
-- For each `asteroid` prototype with `max_health`, a decoy `aa-decoy-<asteroid name>`.
-  It is a `unit-spawner` copied from `biter-spawner`, with:
-  - `max_health` and `resistances` copied from the asteroid;
-  - `trigger_target_mask = {"aa-decoy"}`;
-  - `hidden = true` and `collision_mask = {layers = {}}`;
-  - no spawning (`max_count_of_owned_units = 0`, `max_friends_around_to_spawn = 0`,
-    huge `spawning_cooldown`);
-  - no loot, corpse, minable, autoplace or dying explosion;
-  - invisible and silent: blank graphics, the `not-selectable-in-game` flag and no
-    `selection_box` (this is what hides the health bar, verified), not on the map, no
-    alerts.
-- **Every non-artillery turret** of types `ammo-turret`, `electric-turret`,
-  `fluid-turret` and `turret` gets `aa-decoy` appended to `ignore_target_mask`. This
-  runs in `data-final-fixes` so turrets from other mods are covered too.
+- A `trigger-target-type` named `aa-decoy`.
+- For each `asteroid` prototype with `max_health`, a decoy `aa-decoy-<asteroid name>`:
+  a `unit-spawner` copied from `biter-spawner`, with the asteroid's `max_health` and
+  `resistances`, `trigger_target_mask = {"aa-decoy"}`, no collision, no spawning, loot,
+  corpse or sounds, blank graphics, and the flags `not-on-map` and
+  `not-selectable-in-game` with no `selection_box` (this hides the health bar, verified).
+- Every non-artillery turret (`ammo-turret`, `electric-turret`, `fluid-turret`,
+  `turret`) gets `aa-decoy` in its `ignore_target_mask`, modded turrets included.
+- The targeting computer (entity, item, recipe, technology; see below).
+- A `mod-data` catalogue `aa-asteroids`: asteroid name → chunk type and size rank,
+  found by walking each asteroid's `dying_trigger_effect` chain (works for modded
+  asteroids).
+- The artillery speed changes (startup settings).
 
 Asteroid prototypes are not changed.
 
-### Control loop
+### Control loop (`control.lua`)
 
-For each platform surface, every **N ticks** (setting, default 10), staggered across
-platforms:
+Each tracked asteroid has a **slot**, its registration number modulo the update
+interval, and is updated only on the tick of its slot. Each platform **scans** once per
+interval, on a tick offset by its surface index:
 
-1. Skip the platform if it is no longer valid or has no valid artillery turrets.
-   Track turrets with build and destroy events (asteroid hits destroy them mid-trip),
-   plus a full rescan in `on_init` and `on_configuration_changed`. Keep the registry
-   in `storage`, and check `valid` before every use.
-2. Find asteroids within the turrets' range plus a margin.
-3. Start tracking each new eligible asteroid and record its position. It gets no decoy
-   until a second sample gives it a velocity, since asteroids don't expose one.
-4. For each tracked asteroid:
-   - If it is no longer valid, destroy its decoy and stop tracking it.
-   - Otherwise update its velocity, using the actual tick delta since the last sample.
-     Compute the lead point and run the safety check.
-   - If the point is safe and some turret can reach it (32–224 tiles), create the
-     decoy or `teleport` it there, and set `decoy.health = asteroid.health`.
-   - If the point is unsafe or out of reach, destroy the decoy. It is recreated on
-     the next update once the point is fine again.
+1. Skip the platform if it is gone or has no valid artillery turrets. Turrets are
+   tracked with build events plus a rescan in `on_init`/`on_configuration_changed`, and
+   checked for `valid` before every use.
+2. Build the platform's context: turret centre and spread, reach band, settings, hull
+   outline, targeting computer rules. It is kept in `storage` and shared by that
+   platform's slot updates until the next scan.
+3. Find asteroids within reach, register each with `register_on_object_destroyed`, and
+   start tracking new ones. The scan does nothing else.
+
+On a slot tick, each asteroid in the slot is either dropped (the last scan didn't see
+it, its platform has no context, or it is gone) or updated: velocity from the last
+sample, eligibility, lead point, reach, hull safety, computer rules. Then the decoy is
+created, teleported (only when the aim moved ≥ 0.5 tiles) or destroyed. A destroyed
+asteroid's decoy is removed through `on_object_destroyed`.
 
 ### Target eligibility
 
-- Asteroid size ≥ setting (default **medium**).
-- **Expected shells to kill ≤ setting** (default 8). This is the asteroid's current
-  health divided by the expected damage of one shell against that asteroid type. One
-  shell's damage comes from the shell's damage effects, the force's
-  `artillery-shell` damage modifier, and the asteroid's resistances. This rule replaces
-  "never huge":
-  - With no research, huge asteroids take ~10 per shell (hundreds of shells), so they
-    get no decoy.
+- Asteroid size ≥ the minimum-size setting (default small; computers narrow it further).
+- **Expected shells to kill ≤ setting** (default 8): current health ÷ one shell's
+  damage against that asteroid, from the vanilla shell damage (physical 1000 +
+  explosion 1000), the force's `artillery-shell` damage modifier and the asteroid's
+  resistances (flat decrease first, then percentage). Recomputed per force when research
+  finishes or is reversed.
+  - With no research, huge asteroids take ~10 per shell, so they get no decoy.
   - At about +300% damage they need ~6 shells, so they qualify.
-  - Big asteroids need 3 shells with no research, so they always qualify.
-- Recompute the per-type damage when research finishes (`on_research_finished`, and
-  `on_research_reversed`), not every update.
-- Which eligible asteroid gets shot first is up to vanilla. The mod's only lever is
-  which asteroids get decoys.
-
-Damage math: Factorio applies the flat decrease first, then the percentage. When the
-flat decrease is at least the damage, the result is near zero; count it as 0. Read the
-shell's damage effects (physical 1000 and explosion 1000 in vanilla) from the
-`artillery-projectile` prototype at data stage, and pass them to runtime, for example
-through a `mod-data` prototype, so modded shells are handled too.
+- Which eligible asteroid gets shot first is up to vanilla.
 
 ### Lead calculation
 
-The turret tracks the decoy while it turns, and the shell lands where the decoy is *at
-the moment of firing*. So the lead only needs the shell's flight time:
+The turret tracks the decoy while it turns, and the shell lands where the decoy was at
+the moment of firing. So the lead only needs the shell's flight time. In closed form,
+from the turrets' centre: solve |r + v·t| = s·t for the flight time t, where r is the
+asteroid's offset from the centre, v its velocity and s the shell speed (read at
+runtime from the `artillery-shell` ammo). Before solving, the asteroid is advanced by
+`v · interval / 2`, because the shot can come at any point until the next update.
 
-```
-aim = asteroid_pos + velocity * t,   t = distance(nearest artillery turret, aim) / shell_speed
-iterate ~4 times starting from t = 0
-```
-
-`shell_speed` is read at runtime from the `artillery-shell` ammo prototype's artillery
-delivery `starting_speed`. It is 1 in vanilla and changed by the startup setting below.
-Flight time ≈ distance ÷ shell speed, as measured at speeds 1 and 3. Using the nearest turret rather than the
-one that fires adds an error of about (difference in turret distances) × velocity. That
-stays inside the 4-tile blast for normal ship sizes. It was verified with natural
-asteroids moving up to 0.17 tiles/tick relative to the platform (platform speed 20).
-
-This math lives in a **pure module** (`scripts/intercept.lua`, no game API) so it can be
-tested in isolation.
+The aim point must be reachable: its distance from the centre must lie within
+[min range − spread, range + spread], with range including
+`force.artillery_range_modifier`.
 
 ### Platform safety
 
-This check is required. The spike showed that a shell 2 tiles off the hull destroys
-buildings. Reject an aim point if any `space-platform-foundation` tile lies within
-**impact radius 4 + margin** (setting, default 4, so 8 tiles in total). Platform
-buildings can only stand on foundation, so checking tiles covers them too.
+Reject an aim point if any `space-platform-foundation` tile lies within impact radius 4
++ margin (setting, default 4). A per-chunk outline of the hull, rebuilt on tile events
+and every 10 s, answers most points; points near the outline get an exact
+`count_tiles_filtered`.
 
-### Settings (startup)
+### Targeting computer (`scripts/computer.lua`)
 
-These change prototypes, for all artillery (ground included):
+A radar copy (100 kW, no scanning, `connects_to_other_radars = false` so it has its own
+circuit network, space only). It decides which asteroids get decoys on its platform:
+
+- **Sizes** (checkboxes), **types** (8 asteroid-chunk slots; empty = all) and a
+  **sector zone**: direction, arc, near and far distance. Far goes up to 500 tiles and
+  grows with artillery range research.
+- **Circuit inputs**, roboport-style: each has an enable checkbox and a selectable
+  signal. Direction, arc, near and far (defaults D, A, N, F), a minimum size ("this size
+  and up", S) and a switch-off signal (default ⛔).
+- The zone is drawn on the surface while the computer's window is open.
+- With several computers, an asteroid is allowed if any working computer allows it.
+  With **require computer** on (default), a platform without a working computer fires
+  at nothing.
+- Settings survive blueprints (tag `aa_cfg`, library blueprints included), ghosts and
+  copy-paste.
+
+**Unlock:** technology "Artillery targeting computer", requiring Artillery and the
+Fulgora and Vulcanus science packs; 1000 units of automation, logistic, military,
+chemical, utility, space, metallurgic and electromagnetic science, 60 s each.
+**Recipe** (30 s, any assembler): 50 processing units and 5 radars, both rare or better
+(`quality_min`), plus 20 superconductors, 20 tungsten plates and 10 low density
+structures.
+
+### Settings
+
+Startup (prototypes; all artillery, ground included):
 
 | Setting | Default |
 |---|---|
@@ -375,96 +406,93 @@ These change prototypes, for all artillery (ground included):
 | Artillery shell speed multiplier | 3 |
 | Artillery fire rate multiplier | 2 |
 
-### Settings (runtime-global)
+Runtime-global:
 
 | Setting | Default |
 |---|---|
-| Update interval (ticks) | 10 |
-| Minimum asteroid size to target | medium |
-| Maximum expected shells per asteroid | 8 |
-| Safety margin (tiles) | 4 |
+| Update interval (ticks) | 30 |
+| Smallest asteroid to target | small |
+| Most shells to spend on one asteroid | 8 |
+| Hull safety margin (tiles) | 4 |
+| Artillery needs a targeting computer | on |
 
 ### Mod layout
 
 ```
-info.json                name "artillery-asteroids", factorio_version "2.1",
-                         dependencies: base, space-age
-data-final-fixes.lua     decoy prototypes, trigger-target-type, turret ignore masks
-settings.lua
-control.lua              event wiring
-scripts/intercept.lua    pure lead math
-scripts/tracking.lua     artillery turret registry per surface
-scripts/decoys.lua       asteroid tracking, decoy create/move/destroy, safety check
-locale/en/locale.cfg
-changelog.txt
-scenarios/aa-test/       test scenario (see Testing)
-tools/factorio-test.sh   headless test runner (not shipped in the mod zip)
+mods/mod-list.json             mods enabled for the test runner
+mods/awesome-artillery/
+  info.json, changelog.txt, thumbnail.png (placeholder from a screenshot)
+  settings.lua
+  data-final-fixes.lua         decoys, turret ignore masks, computer, catalogue, speeds
+  control.lua                  decoy controller, events, remote interface
+  scripts/computer.lua         targeting computer: rules, GUI, zones, blueprints
+  locale/en/locale.cfg
+  scenarios/playtest/          playtest ship + headless test cases (not shipped)
+  scenarios/thumbnail/         screenshots for the thumbnail (not shipped)
+  scenarios/bars/              health bar screenshot check (not shipped)
+tools/factorio-test.sh         headless runner, client and play launcher
+tools/package.sh               builds dist/awesome-artillery_<version>.zip
+.github/workflows/build.yml    zip on pushes to main, GitHub release on v* tags
 ```
+
+The remote interface `awesome-artillery` (decoy counts, computer config, profiling,
+setting changes) ships with the mod: scenarios and other mods can use it.
 
 ## Testing (deliberately light)
 
-**Runner:** `tools/factorio-test.sh MODS_DIR MOD/SCENARIO [TEST_ARG] [TICKS]` already
-exists. It runs one headless `--test-scenario` with an isolated config, so the user's
-saves, mods and settings are untouched. It checks its arguments and prints only the
-scenario's own output and errors. The full log goes to `.factorio-test/last.log`.
+**Runner:** `tools/factorio-test.sh MODS_DIR MOD/SCENARIO [TEST_ARG] [TICKS]` runs one
+headless `--test-scenario` with an isolated write dir, so the user's saves, mods and
+settings are untouched. `--client` and `--play` start the game client on a scenario
+(screenshots only work there).
 
-**One scenario** (`scenarios/aa-test`) with a few cases, chosen by `--test-arg`:
+**Playtest scenario cases** (`--test-arg "<case> [ticks]"`, default 3600 ticks):
 
-1. `intercept`: pure-math checks of the lead solver (stationary target, crossing
-   target, unreachable target → nil).
-2. `kill`: a platform with three artillery turrets and a medium asteroid on a known
-   crossing path. Passes if one shell kills it and no platform entity takes damage.
-3. `overkill`: one big asteroid. Passes if exactly 3 shells are fired.
-4. `safety`: an asteroid whose lead point is within 8 tiles of the hull. Passes if no
-   shell is fired.
-5. `ignore`: laser, tesla, railgun, gun and rocket turrets next to decoys. Passes if
-   none of them targets a decoy, and each still kills a real asteroid.
+| Case | Checks |
+|---|---|
+| `check` | general invariants while the ship flies |
+| `tc-none`, `tc-unpowered` | no decoys or shells without a working computer |
+| `tc-zone` | decoys only for medium asteroids in the north 90° sector |
+| `tc-signals`, `tc-pick`, `tc-ignore` | minimum size from a wire, from a chosen signal, and an unticked input is ignored |
+| `tc-chunk` | type slots (metallic only) |
+| `tc-wires` | two computers on separate wires |
+| `tc-blueprint` | a computer built from a tagged ghost gets the settings |
+| `tech` | the recipe is locked at start; prerequisites and ingredient quality |
+| `perf`, `perf-idle`, `-sN` (speed), `-iN` (interval) | profiling |
+| `perf-vel`, `perf-who` | velocity after speed changes; which turret fires |
 
-Each case calls `script.finish_test(false)` itself when its deadline passes. That way
-the built-in "timeout counts as a pass" never applies.
+Cases that wait for a kind of asteroid need 60 s: in 30 s some runs see no medium or
+metallic asteroid at all. Each case fails itself at its deadline, so the built-in
+"timeout counts as a pass" never hides a failure.
 
-There is no CI and no external framework.
-
-## Build order
-
-1. Spike: done (see "Verified live").
-2. ~~Remaining live checks~~: done (see "Other turret types" and "Travelling platform").
-3. Prototypes, including decoy invisibility.
-4. `intercept.lua` and the `intercept` test case.
-5. Turret tracking, the decoy control loop and the safety check.
-6. The `kill`, `overkill`, `safety` and `ignore` test cases.
-7. Settings, locale, changelog, then a manual play-test on a real platform trip.
-
-## Left to the builder
-
-- Exact `storage` layout, the stagger scheme, and the key used to track asteroids.
-- How to make the decoy fully invisible and silent (graphics, map, alerts, stats).
-- How the test scenario builds its platform. The spike used
-  `force.create_space_platform` + `apply_starter_pack` plus hand-placed foundation
-  tiles, which worked.
+No CI tests: GitHub Actions only builds the zip.
 
 ## Calls made without the user
 
-- Reuse the vanilla turret and shell; no new items.
-- Default multipliers of 5× rotation and 3× shell speed: these are the tested values,
-  not tuned.
-- Asteroids that need more than 8 shells get no decoy (setting). That keeps huge
-  asteroids off the list until damage research makes them worth shooting (the user
-  suggested making huge asteroids viable with research).
-- Default minimum target size is medium. Small asteroids are cheap to kill with lasers,
-  and a 100 kg shell is wasted on them.
-- Safety checks foundation tiles only, since platform buildings always stand on
-  foundation.
-- Lead uses the nearest turret's distance, because vanilla's turret choice is unknown
-  ahead of time.
+- Reuse the vanilla turret and shell.
+- Default multipliers 5× rotation and 3× shell speed (tested values, not tuned), 2× fire
+  rate (after the playtest).
+- Asteroids that need more than 8 shells get no decoy (setting).
+- Safety checks foundation tiles only, since platform buildings stand on foundation.
+- The exact research cost (1000 units), Artillery as a prerequisite, the recipe amounts
+  and the extra ingredients (superconductor, tungsten plate, low density structure).
+- The remote interface ships with the mod.
+- The thumbnail is a placeholder from an in-game screenshot.
 
 ## Decided with the user
 
 - Decoy-based firing, with the decoy's health tied to the asteroid's and the decoy
   destroyed with it (the user's idea).
-- Vanilla picks which turret fires; turret placement is part of the ship-design
-  challenge (the user's call).
-- Light testing only, using the built-in 2.1.24 test flags.
-- Faster rotation and shells may change ground artillery too (the user's call).
-- Huge asteroids become targets once research makes them worth shooting (the
-  user's suggestion).
+- Vanilla picks which turret fires; turret placement is part of the ship design.
+- Light testing only, using the built-in 2.1.24 test flags; live checks, not
+  assumptions.
+- Faster rotation, shells and fire rate change ground artillery too.
+- Huge asteroids become targets once research makes them worth shooting.
+- The targeting computer and its features (sizes, types, zone, roboport-style circuit
+  inputs, switch-off signal, zone drawing).
+- Target platform speed ≤ 10; avoid spikes; keep it simple with TODOs for later.
+- Name: Awesome Artillery, with more artillery features to come (new shells, flares
+  for demolishers).
+- Computer unlock needs Fulgora and Vulcanus research; costly recipe with rare
+  processing units and rare radars; any assembler (the research already gates it).
+- GitHub Actions: zip on main, release on tags; no automatic uploads, no CI tests,
+  hardened workflow.
