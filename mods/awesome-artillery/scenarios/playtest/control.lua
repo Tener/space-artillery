@@ -140,6 +140,22 @@ local function button(parent, name, caption, tooltip, width)
   return b
 end
 
+-- Manual checks before release: caption, how to check (tooltip).
+local CHECKLIST = {
+  {"Decoys: not on the map, no alerts",
+    "Let the artillery fire for a while. Open the map (M): no enemy markers around the ship. No alerts at the bottom right."},
+  {"Blueprint keeps computer settings",
+    "Change the computer's settings (e.g. medium only, 90° north). Copy it (Ctrl+C) and paste it on free foundation. Once the platform builds it, open it: same settings."},
+  {"Library blueprint keeps settings",
+    "Put a blueprint in the library, then use its \"Select new contents\" on a configured computer. Build from that blueprint: same settings."},
+  {"Copy-paste settings",
+    "Shift+right-click a configured computer, then Shift+left-click another: it takes the settings."},
+  {"Save and load mid-flight",
+    "Save during flight (Esc → Save game), then load it. Artillery keeps firing; \"Show decoys and zones\" shows the decoys moving."},
+  {"Multiplayer (optional)",
+    "Host the save (Multiplayer → Host saved game) and join from a second client. Fly for a few minutes: no desync."},
+}
+
 local function build_gui(p)
   if p.gui.left.aa_panel then p.gui.left.aa_panel.destroy() end
   local f = p.gui.left.add{type = "frame", name = "aa_panel", caption = "Artillery playtest", direction = "vertical"}
@@ -196,6 +212,15 @@ local function build_gui(p)
   button(b, "aa_add_computer", "Add computer", "Place another targeting computer near the hub (powered)", 120)
   button(b, "aa_shot", "Screenshot", "Save your current view without the UI to script-output", 110)
   button(b, "aa_shot_ui", "With UI", "Save your current view including the UI to script-output", 90)
+
+  inner.add{type = "line"}
+  local h = inner.add{type = "flow", direction = "horizontal", vertical_centering = true}
+  h.add{type = "label", name = "aa_checklist_title", style = "bold_label"}
+  h.add{type = "empty-widget"}.style.horizontally_stretchable = true
+  button(h, "aa_give_computers", "Computers to hub", "Put 5 targeting computers into the hub, so the platform can build your blueprints and pastes", 150)
+  for i, item in pairs(CHECKLIST) do
+    inner.add{type = "checkbox", name = "aa_check_" .. i, caption = item[1], tooltip = item[2], state = storage.checklist[i] or false}
+  end
 end
 
 local function refresh_gui(p)
@@ -203,6 +228,11 @@ local function refresh_gui(p)
   if not f then return end
   local inner = f.inner
   inner.summary.caption = summary_line()
+  local done = 0
+  for i in pairs(CHECKLIST) do if storage.checklist[i] then done = done + 1 end end
+  for _, el in pairs(inner.children) do
+    if el.aa_checklist_title then el.aa_checklist_title.caption = string.format("Release checklist: %d/%d", done, #CHECKLIST) end
+  end
   for _, size in pairs(SIZES) do
     for _, c in pairs(CAUSES) do
       inner.stats[size .. "|" .. c[1]].caption = tostring((storage.stats.kills[size] or {})[c[1]] or 0)
@@ -245,6 +275,10 @@ script.on_event(defines.events.on_gui_click, function(e)
     local pos = s.find_non_colliding_position("aa-targeting-computer", COMPUTER_POS, 8, 0.5)
     local c = pos and s.create_entity{name = "aa-targeting-computer", position = pos, force = "player", raise_built = true}
     p.print(c and string.format("Targeting computer placed at (%.1f, %.1f).", pos.x, pos.y) or "No free spot near the hub.")
+  elseif name == "aa_give_computers" then
+    local hub = storage.platform.hub
+    local n = hub and hub.valid and hub.get_inventory(defines.inventory.hub_main).insert{name = "aa-targeting-computer", count = 5} or 0
+    p.print(n .. " targeting computers put into the hub.")
   elseif name == "aa_shot" or name == "aa_shot_ui" then
     local path = string.format("awesome-artillery-%d%s.png", game.tick, name == "aa_shot_ui" and "-ui" or "")
     game.take_screenshot{player = p, resolution = {1920, 1080}, show_gui = name == "aa_shot_ui", path = path}
@@ -263,6 +297,15 @@ end)
 
 script.on_event(defines.events.on_gui_checked_state_changed, function(e)
   local el = e.element
+  local check = tonumber(el.name:match("^aa_check_(%d+)$"))
+  if check then
+    storage.checklist[check] = el.state
+    for _, p in pairs(game.connected_players) do
+      local f = p.gui.left.aa_panel
+      if f and f.inner[el.name] then f.inner[el.name].state = el.state end
+    end
+    return refresh_all()
+  end
   if el.name == "aa_refill" then storage.refill = el.state
   elseif el.name == "aa_debug" then
     storage.debug = el.state
@@ -369,6 +412,7 @@ script.on_init(function()
   storage.forced_speed = nil
   storage.boarded = {}
   storage.observed = {}
+  storage.checklist = {}
   -- start every playtest with small asteroids targeted (a saved mod setting would win otherwise)
   remote.call("awesome-artillery", "set_min_size", "small")
   local arg = script.test_arg
