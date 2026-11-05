@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "title": "Awesome Artillery",
   "author": "tener",
-  "description": "Space platform artillery shoots asteroids. A targeting computer picks which asteroids, by size, type and zone, with circuit control. Also makes all artillery turn, fire and fly faster (configurable).",
+  "description": "More uses for artillery, with more to come (new shell types, flares to target demolishers). Now: space platform artillery shoots asteroids, steered by a targeting computer (sizes, types, zone, circuit control). Also makes all artillery turn, fire and fly faster (configurable).",
   "factorio_version": "2.1",
   "dependencies": ["base", "space-age"]
 }
