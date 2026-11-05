@@ -336,7 +336,7 @@ commands.add_command("aa-debug", "Toggle drawing of artillery decoys (red circle
 end)
 
 -- Read-only view for scenarios and tests.
-remote.add_interface("aa-playtest", {
+remote.add_interface("awesome-artillery", {
   decoy_count = function()
     local n = 0
     for _, tr in pairs(storage.tracked) do if tr.d and tr.d.valid then n = n + 1 end end

@@ -1,7 +1,7 @@
 {
-  "name": "aa-playtest",
+  "name": "awesome-artillery",
   "version": "0.0.1",
-  "title": "Artillery Asteroids (playtest build)",
+  "title": "Awesome Artillery",
   "author": "tener",
   "description": "Decoy-based artillery defense for space platforms. Throwaway playtest build.",
   "factorio_version": "2.1",

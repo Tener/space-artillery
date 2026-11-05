@@ -119,7 +119,7 @@ local function summary_line()
   end
   return string.format("%d s, %d shells, %d artillery kills (%.2f per shell), %d hit the hull, %d buildings lost, %d decoys",
     math.floor((game.tick - st.start) / 60), st.shells, kills, kills / math.max(st.shells, 1), hull, st.lost,
-    remote.call("aa-playtest", "decoy_count"))
+    remote.call("awesome-artillery", "decoy_count"))
 end
 
 -- controls ------------------------------------------------------------------------------
@@ -128,7 +128,7 @@ local function apply_research()
   local f, lv = game.forces.player, storage.levels
   f.set_ammo_damage_modifier("artillery-shell", 0.1 * lv.damage)
   f.set_gun_speed_modifier("artillery-shell", 1.0 * lv.rate)
-  remote.call("aa-playtest", "reset_damage")
+  remote.call("awesome-artillery", "reset_damage")
   game.print(string.format("Artillery damage +%d%%, fire rate +%d%%", 10 * lv.damage, 100 * lv.rate))
 end
 
@@ -246,7 +246,7 @@ script.on_event(defines.events.on_gui_click, function(e)
     local c = pos and s.create_entity{name = "aa-targeting-computer", position = pos, force = "player", raise_built = true}
     p.print(c and string.format("Targeting computer placed at (%.1f, %.1f).", pos.x, pos.y) or "No free spot near the hub.")
   elseif name == "aa_shot" or name == "aa_shot_ui" then
-    local path = string.format("aa-playtest-%d%s.png", game.tick, name == "aa_shot_ui" and "-ui" or "")
+    local path = string.format("awesome-artillery-%d%s.png", game.tick, name == "aa_shot_ui" and "-ui" or "")
     game.take_screenshot{player = p, resolution = {1920, 1080}, show_gui = name == "aa_shot_ui", path = path}
     p.print("Screenshot saved: script-output/" .. path)
   end
@@ -256,7 +256,7 @@ end)
 script.on_event(defines.events.on_gui_selection_state_changed, function(e)
   local el = e.element
   if el.name ~= "aa_min_size" then return end
-  remote.call("aa-playtest", "set_min_size", SIZES[el.selected_index])
+  remote.call("awesome-artillery", "set_min_size", SIZES[el.selected_index])
   game.print("Artillery now targets " .. SIZES[el.selected_index] .. " asteroids and up.")
   refresh_all()
 end)
@@ -266,7 +266,7 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(e)
   if el.name == "aa_refill" then storage.refill = el.state
   elseif el.name == "aa_debug" then
     storage.debug = el.state
-    remote.call("aa-playtest", "set_debug", el.state)
+    remote.call("awesome-artillery", "set_debug", el.state)
   else return end
   for _, p in pairs(game.connected_players) do
     local f = p.gui.left.aa_panel
@@ -318,7 +318,7 @@ end
 
 -- Per-case invariants, checked every second; returns an error or nil.
 local function check_case()
-  local case, decoys = storage.case, remote.call("aa-playtest", "decoy_list")
+  local case, decoys = storage.case, remote.call("awesome-artillery", "decoy_list")
   for _, d in pairs(decoys) do storage.observed[d.name] = (storage.observed[d.name] or 0) + 1 end
   if case == "tc-none" or case == "tc-unpowered" then
     if #decoys > 0 or storage.stats.shells > 0 then
@@ -371,11 +371,11 @@ script.on_init(function()
   storage.boarded = {}
   storage.observed = {}
   -- start every playtest with small asteroids targeted (a saved mod setting would win otherwise)
-  remote.call("aa-playtest", "set_min_size", "small")
+  remote.call("awesome-artillery", "set_min_size", "small")
   local arg = script.test_arg
   -- update interval: from the case name ("perf-i30", "check-i60"), else the default 30
   local interval = arg and tonumber(arg:match("%-i(%d+)")) or 30
-  remote.call("aa-playtest", "set_interval", interval)
+  remote.call("awesome-artillery", "set_interval", interval)
   if arg then
     storage.case = arg:match("^(%S+)")
     storage.test_until = tonumber(arg:match("%s(%d+)")) or 3600
@@ -421,12 +421,12 @@ script.on_event(defines.events.on_tick, function(e)
       if cfg.sizes then -- listed sizes only
         for _, s in pairs(SIZES) do cfg.sizes[s] = cfg.sizes[s] or false end
       end
-      remote.call("aa-playtest", "set_computer_cfg", unit, cfg)
+      remote.call("awesome-artillery", "set_computer_cfg", unit, cfg)
     end
   end
   if e.tick == 2 and storage.test_until and storage.computer then
     -- build the computer's window headless so GUI mistakes fail the test
-    for _, p in pairs(game.players) do remote.call("aa-playtest", "open_computer", p.index, storage.computer.unit_number) end
+    for _, p in pairs(game.players) do remote.call("awesome-artillery", "open_computer", p.index, storage.computer.unit_number) end
     say("computer window opened for %d player(s)", #game.players)
   end
   if e.tick % 60 == 0 then
@@ -503,7 +503,7 @@ script.on_event(defines.events.on_tick, function(e)
         -- decoy whose bearing from this turret matches the barrel direction
         local o = t.relative_turret_orientation
         local best, best_off
-        for _, d in pairs(remote.call("aa-playtest", "decoy_list")) do
+        for _, d in pairs(remote.call("awesome-artillery", "decoy_list")) do
           local b = (math.atan2(d.x - t.position.x, -(d.y - t.position.y)) / (2 * math.pi)) % 1
           local off = math.abs((b - o + 0.5) % 1 - 0.5)
           if not best_off or off < best_off then best, best_off = d, off end
@@ -531,7 +531,7 @@ script.on_event(defines.events.on_tick, function(e)
   end
   if storage.test_until and storage.case == "perf-bench" then
     if e.tick == 1800 then
-      remote.call("aa-playtest", "bench", 50)
+      remote.call("awesome-artillery", "bench", 50)
       return script.finish_test(true)
     end
     return
@@ -539,13 +539,13 @@ script.on_event(defines.events.on_tick, function(e)
   if storage.test_until and storage.case:find("^perf") then
     if e.tick == 600 then
       local case = storage.case
-      remote.call("aa-playtest", "profile_start", {no_safety = case == "perf-nosafe",
+      remote.call("awesome-artillery", "profile_start", {no_safety = case == "perf-nosafe",
         skip = {teleport = case == "perf-noteleport", register = case == "perf-noregister", health = case == "perf-nohealth"},
         extra_alloc = tonumber(case:match("^perf%-alloc(%d+)$"))})
       say("profiling from t=600 at wall %.3f", os and os.clock and os.clock() or -1)
     end
     if e.tick >= storage.test_until then
-      remote.call("aa-playtest", "profile_report")
+      remote.call("awesome-artillery", "profile_report")
       say("%s", summary_line())
       return script.finish_test(true)
     end

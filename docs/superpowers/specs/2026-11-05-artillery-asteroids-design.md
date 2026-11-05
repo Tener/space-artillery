@@ -1,4 +1,4 @@
-# Artillery Asteroids — Design
+# Awesome Artillery — Design
 
 Date: 2026-11-05 · Target: Factorio 2.1.24+ with Space Age · Status: draft for approval
 
