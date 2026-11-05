@@ -528,6 +528,21 @@ script.on_event(defines.events.on_tick, function(e)
     end
     return
   end
+  -- tech: the computer is researched, not available from the start, and needs rare+ chips
+  if storage.test_until and storage.case == "tech" then
+    local tech, recipe = prototypes.technology["aa-targeting-computer"], prototypes.recipe["aa-targeting-computer"]
+    local prereqs = {}
+    for name in pairs(tech.prerequisites) do prereqs[#prereqs + 1] = name end
+    table.sort(prereqs)
+    say("tech prerequisites: %s; cost %d", table.concat(prereqs, ", "), tech.research_unit_count)
+    for _, i in pairs(recipe.ingredients) do
+      say("ingredient %s x%d quality_min=%s", i.name, i.amount, tostring(i.quality_min))
+    end
+    local enabled = game.forces.player.recipes["aa-targeting-computer"].enabled
+    say("recipe enabled at start: %s", tostring(enabled))
+    return script.finish_test(not enabled and tech.prerequisites["electromagnetic-science-pack"] ~= nil
+      and tech.prerequisites["metallurgic-science-pack"] ~= nil)
+  end
   if storage.test_until and storage.case:find("^perf") then
     if e.tick == 600 then
       remote.call("awesome-artillery", "profile_start")

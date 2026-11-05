@@ -95,9 +95,23 @@ do
   item.icon = nil
   item.order = "d[radar]-z[targeting-computer]"
   data:extend{c, item, {
-    type = "recipe", name = "aa-targeting-computer", enabled = true,
-    ingredients = {{type = "item", name = "processing-unit", amount = 5}, {type = "item", name = "radar", amount = 1}},
+    type = "recipe", name = "aa-targeting-computer", enabled = false, energy_required = 30,
+    ingredients = {
+      -- rare or better, whatever the recipe's quality
+      {type = "item", name = "processing-unit", amount = 50, quality_min = "rare"},
+      {type = "item", name = "radar", amount = 1},
+    },
     results = {{type = "item", name = "aa-targeting-computer", amount = 1}},
+  }, {
+    type = "technology", name = "aa-targeting-computer",
+    icons = {{icon = data.raw.technology.artillery.icon, icon_size = data.raw.technology.artillery.icon_size, tint = tint}},
+    prerequisites = {"artillery", "electromagnetic-science-pack", "metallurgic-science-pack"},
+    effects = {{type = "unlock-recipe", recipe = "aa-targeting-computer"}},
+    unit = {count = 1000, time = 60, ingredients = {
+      {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
+      {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
+      {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
+    }},
   }}
 end
 
