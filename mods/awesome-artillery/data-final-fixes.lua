@@ -99,7 +99,10 @@ do
     ingredients = {
       -- rare or better, whatever the recipe's quality
       {type = "item", name = "processing-unit", amount = 50, quality_min = "rare"},
-      {type = "item", name = "radar", amount = 1},
+      {type = "item", name = "radar", amount = 5, quality_min = "rare"},
+      {type = "item", name = "superconductor", amount = 20},
+      {type = "item", name = "tungsten-plate", amount = 20},
+      {type = "item", name = "low-density-structure", amount = 10},
     },
     results = {{type = "item", name = "aa-targeting-computer", amount = 1}},
   }, {
