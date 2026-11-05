@@ -1,0 +1,56 @@
+# Builds the mod zip on pushes to main (kept as a workflow artifact) and on version tags
+# (attached to a GitHub release). Hardening: no pull request triggers, no secrets beyond
+# the job token, read-only token except when creating a release, actions pinned to commits,
+# no workflow expressions inside shell scripts.
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions: {}
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Package
+        run: tools/package.sh
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: awesome-artillery
+          path: dist/*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Package and release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          tools/package.sh
+          zip="dist/awesome-artillery_${TAG#v}.zip"
+          # the tag must match the version in info.json
+          [ -f "$zip" ] || { echo "tag $TAG does not match info.json version"; ls dist; exit 1; }
+          gh release create "$TAG" "$zip" --verify-tag --title "$TAG" --notes "See changelog.txt."
