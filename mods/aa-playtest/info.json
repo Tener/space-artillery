@@ -1,0 +1,9 @@
+{
+  "name": "aa-playtest",
+  "version": "0.0.1",
+  "title": "Artillery Asteroids (playtest build)",
+  "author": "tener",
+  "description": "Decoy-based artillery defense for space platforms. Throwaway playtest build.",
+  "factorio_version": "2.1",
+  "dependencies": ["base", "space-age"]
+}
