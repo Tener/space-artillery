@@ -391,10 +391,13 @@ script.on_event(defines.events.on_entity_settings_pasted, function(e)
 end)
 
 script.on_event(defines.events.on_player_setup_blueprint, function(e)
-  local p = game.get_player(e.player_index)
-  local bp = e.stack
-  if not (bp and bp.valid_for_read and bp.is_blueprint) then bp = p.blueprint_to_setup end
-  if not (bp and bp.valid_for_read) then return end
+  -- a library blueprint being reassigned comes as a record, otherwise it's an item stack
+  local bp = e.record
+  if not (bp and bp.valid_for_write) then
+    bp = e.stack
+    if not (bp and bp.valid_for_read and bp.is_blueprint) then bp = game.get_player(e.player_index).blueprint_to_setup end
+    if not (bp and bp.valid_for_read) then return end
+  end
   for index, ent in pairs(e.mapping.get()) do
     local c = ent.valid and ent.name == M.NAME and storage.computers[ent.unit_number]
     if c then bp.set_blueprint_entity_tag(index, "aa_cfg", c.cfg) end

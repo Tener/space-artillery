@@ -65,7 +65,7 @@ local function build_ship()
   -- computer settings are applied on tick 1 (the mod's on_init runs after ours)
   local comp = storage.computer and storage.computer.unit_number
   storage.pending_cfg = {}
-  if case == "tc-zone" then
+  if case == "tc-zone" or case == "tc-blueprint" then
     -- medium only, north, 90° wide
     storage.pending_cfg[comp] = {sizes = {medium = true}, dir = 0, arc = 90}
   elseif case == "tc-signals" then
@@ -525,6 +525,22 @@ script.on_event(defines.events.on_tick, function(e)
       say("shots=%d matched to a decoy=%d; firing turret's distance rank among turrets: %s",
         W.shots, W.matched, table.concat(parts, ", "))
       return script.finish_test(true)
+    end
+    return
+  end
+  -- blueprint: a computer built from a ghost with the settings tag gets those settings
+  -- (the blueprint setup side needs a player selection; check that in a real game)
+  if storage.test_until and storage.case == "tc-blueprint" then
+    if e.tick == 5 then
+      local src = remote.call("awesome-artillery", "computer_cfg", storage.computer.unit_number)
+      local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "aa-targeting-computer",
+        position = {-6.5, -18.5}, force = "player", tags = {aa_cfg = src}}
+      local _, built = ghost.revive{raise_revive = true}
+      local got = built and remote.call("awesome-artillery", "computer_cfg", built.unit_number)
+      local a, b = serpent.line(src, {sortkeys = true}), serpent.line(got, {sortkeys = true})
+      say("source cfg: %s", a)
+      say("built cfg:  %s", b)
+      return script.finish_test(built ~= nil and a == b and src.arc == 90)
     end
     return
   end
