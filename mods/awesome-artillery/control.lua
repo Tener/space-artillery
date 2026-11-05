@@ -101,20 +101,6 @@ local function intercept(px, py, vx, vy, ctx)
   return px + vx * t, py + vy * t
 end
 
--- Profiling (headless measurement only; not saved). Enabled via remote profile_start.
-local P
--- "scan" contains "rules", "find" and "register"
-local PROFILE_KEYS = {"total", "scan", "rules", "find", "register", "asteroids", "refresh"}
-local function count(key) if P then P.n[key] = (P.n[key] or 0) + 1 end end
-local function timed(key, fn, ...)
-  if not P then return fn(...) end
-  local t = helpers.create_profiler()
-  local a, b = fn(...)
-  t.stop()
-  P.t[key].add(t)
-  return a, b
-end
-
 -- Hull outline per surface: one box per chunk that has foundation, with the exact tile
 -- extent inside that chunk. Rebuilt on tile changes and every 10 s (tiles can also be
 -- destroyed by asteroid impacts). A stale outline only makes the check slower, not unsafe,
@@ -145,13 +131,10 @@ local function invalidate_hull(e)
 end
 
 local function safe(s, aim, ctx)
-  count("safety_checks")
-  if P and P.no_safety then return true end
   local r = ctx.blast
   local x, y = aim[1], aim[2]
   for _, b in pairs(ctx.hull) do
     if x > b[1] - r and x < b[3] + r and y > b[2] - r and y < b[4] + r then
-      count("tile_queries")
       return s.count_tiles_filtered{position = aim, radius = r, name = FOUNDATION, limit = 1} == 0
     end
   end
@@ -203,11 +186,6 @@ local function update_asteroid(tr, ctx)
   local dt = game.tick - tr.tick
   if dt > 0 then tr.vx, tr.vy = (px - tr.lx) / dt, (py - tr.ly) / dt end
   tr.lx, tr.ly, tr.tick = px, py, game.tick
-  count("asteroids")
-  if P and P.extra_alloc then
-    -- profiling only: extra garbage, to measure what allocation costs
-    for _ = 1, P.extra_alloc do P.sink = {px, py} end
-  end
   local health = a.health
   local ax, ay
   if tr.vx and eligible(name, health, force, ctx) then ax, ay = intercept(px, py, tr.vx, tr.vy, ctx) end
@@ -219,13 +197,12 @@ local function update_asteroid(tr, ctx)
   if not safe(s, aim, ctx) then return drop_decoy(tr) end
   if rules and not computer.allows(rules, name, ax, ay) then return drop_decoy(tr) end
   if tr.d and tr.d.valid then
-    if moved and not (P and P.skip.teleport) then count("teleports"); tr.d.teleport(aim) end
+    if moved then tr.d.teleport(aim) end
   else
-    count("creates")
     tr.d = s.create_entity{name = "aa-decoy-" .. name, position = aim, force = "enemy"}
     tr.dh = nil
   end
-  if tr.d and tr.dh ~= health and not (P and P.skip.health) then tr.d.health = health; tr.dh = health end
+  if tr.d and tr.dh ~= health then tr.d.health = health; tr.dh = health end
   if storage.debug then
     rendering.draw_circle{color = {1, 0.2, 0.2}, radius = 1, width = 2, target = aim, surface = s, time_to_live = interval + 1}
     rendering.draw_line{color = {1, 0.6, 0.2}, width = 1, from = a, to = aim, surface = s, time_to_live = interval + 1}
@@ -258,40 +235,28 @@ local function scan_surface(s, turrets, interval)
   -- some turret can reach a point whose distance from the centre is within this band
   ctx.reach_min, ctx.reach_max = math.max(0, c.min_range - spread), range + spread
   -- targeting computers: nil rules = no restriction (only when computers aren't required and none are built)
-  local rules, present = timed("rules", computer.rules, s.index)
+  local rules, present = computer.rules(s.index)
   if not present and not settings.global["aa-require-computer"].value then rules = nil end
   ctx.rules = rules
-  if rules and #rules == 0 then return end -- nothing allowed; unseen asteroids are dropped in their slots
+  if rules and #rules == 0 then return 0 end -- nothing allowed; unseen asteroids are dropped in their slots
   -- TODO(perf): every asteroid in this circle gets a full update, even ones that can never
   -- get a decoy. Possible improvements, worth it when computers restrict targeting:
   --  * name prefilter: per update, the set of asteroid names that could pass (min size,
   --    computers' sizes/chunks, shell limit at full health); skip others after a.name.
   --  * scan only the computers' zones (sector bounding boxes) instead of the full circle.
   --  * update asteroids without a decoy less often (see the per-asteroid interval plan).
-  local found = timed("find", s.find_entities_filtered, {type = "asteroid", position = {cx, cy}, radius = range + spread})
-  if P then
-    P.n.scanned = (P.n.scanned or 0) + #found
-    P.n.max_scanned = math.max(P.n.max_scanned or 0, #found)
-  end
-  timed("register", function()
-    for _, a in pairs(found) do
-      local id
-      if P and P.skip.register then
-        id = a.unit_number
-        if not id and not P.warned then P.warned = true; print("[AA-PROFILE] asteroids have no unit_number") end
-        id = id or script.register_on_object_destroyed(a)
-      else
-        id = script.register_on_object_destroyed(a)
-      end
-      local tr = storage.tracked[id]
-      if not tr then
-        local p = a.position
-        tr = {a = a, name = a.name, surface = s.index, lx = p.x, ly = p.y, tick = game.tick}
-        track(id, tr)
-      end
-      tr.seen = game.tick
+  local found = s.find_entities_filtered{type = "asteroid", position = {cx, cy}, radius = range + spread}
+  for _, a in pairs(found) do
+    local id = script.register_on_object_destroyed(a)
+    local tr = storage.tracked[id]
+    if not tr then
+      local p = a.position
+      tr = {a = a, name = a.name, surface = s.index, lx = p.x, ly = p.y, tick = game.tick}
+      track(id, tr)
     end
-  end)
+    tr.seen = game.tick
+  end
+  return #found
 end
 
 -- This tick's slot: update its asteroids, or drop the ones the last scan of their surface
@@ -313,7 +278,9 @@ local function update_slot(slot)
   return n
 end
 
+-- returns the number of asteroids found (for profiling)
 local function scan_due(tick, interval)
+  local found = 0
   for index, list in pairs(storage.turrets) do
     -- surfaces scan on different ticks of the interval
     if (tick + index) % interval == 0 then
@@ -325,50 +292,35 @@ local function scan_due(tick, interval)
         for k, t in pairs(list) do
           if t.valid then turrets[#turrets + 1] = t else list[k] = nil end
         end
-        if #turrets > 0 then scan_surface(s, turrets, interval) else storage.ctx[index] = nil end
+        if #turrets > 0 then found = found + scan_surface(s, turrets, interval) else storage.ctx[index] = nil end
       end
     end
   end
+  return found
 end
 
-local update -- defined below; wrapped for profiling
+-- Profiling (headless measurement only; not saved), enabled via remote profile_start.
+-- Profiler values can't be compared in Lua, so the worst tick is reported as counts.
+local P
+
+local function update(tick, interval)
+  if storage.interval ~= interval then rebuild_buckets(interval) end
+  local found = scan_due(tick, interval)
+  local n = update_slot(tick % interval)
+  if tick % interval == 0 then computer.refresh_open() end
+  return n, found
+end
+
 script.on_event(defines.events.on_tick, function(e)
   local interval = settings.global["aa-update-interval"].value
-  if P then
-    P.n.ticks = (P.n.ticks or 0) + 1
-    -- rough allocation measure: Lua heap growth across the tick (undercounts if a GC
-    -- step runs in between; those samples are dropped)
-    local ok, before = pcall(collectgarbage, "count")
-    timed("total", update, e, interval)
-    local ok2, after = pcall(collectgarbage, "count")
-    if ok and ok2 then
-      if after >= before then
-        P.n.alloc_kb = (P.n.alloc_kb or 0) + (after - before)
-        P.n.alloc_samples = (P.n.alloc_samples or 0) + 1
-      end
-    elseif not P.gc_warned then
-      P.gc_warned = true
-      print("[AA-PROFILE] collectgarbage not available: " .. tostring(before))
-    end
-  else
-    update(e, interval)
-  end
+  if not P then return update(e.tick, interval) end
+  local t = helpers.create_profiler()
+  local n, found = update(e.tick, interval)
+  t.stop()
+  P.total.add(t)
+  P.ticks, P.asteroids = P.ticks + 1, P.asteroids + n
+  P.asteroids_max, P.found_max = math.max(P.asteroids_max, n), math.max(P.found_max, found)
 end)
-
-update = function(e, interval)
-  if storage.interval ~= interval then rebuild_buckets(interval) end
-  timed("scan", scan_due, e.tick, interval)
-  local n = timed("asteroids", update_slot, e.tick % interval)
-  if P then
-    P.n.asteroids_max = math.max(P.n.asteroids_max or 0, n)
-    if e.tick % interval == 0 then
-      local d = 0
-      for _, tr in pairs(storage.tracked) do if tr.d then d = d + 1 end end
-      P.n.decoy_samples, P.n.decoy_n = (P.n.decoy_samples or 0) + d, (P.n.decoy_n or 0) + 1
-    end
-  end
-  if e.tick % interval == 0 then timed("refresh", computer.refresh_open) end
-end
 
 script.on_event(defines.events.on_object_destroyed, function(e) untrack(e.registration_number) end)
 
@@ -426,106 +378,16 @@ remote.add_interface("awesome-artillery", {
   end,
   reset_damage = reset_damage,
   set_debug = function(on) storage.debug = on and true or false end,
-  -- Micro-benchmark of single operations over the live tracked asteroids/decoys.
-  bench = function(passes)
-    local list = {}
-    for _, tr in pairs(storage.tracked) do
-      if tr.a.valid and tr.d and tr.d.valid then
-        local p = tr.d.position
-        tr.cached = {p.x, p.y}
-        list[#list + 1] = tr
-      end
-    end
-    local n = #list
-    if n == 0 then print("[AA-BENCH] no live decoys") return end
-    local s = list[1].d.surface
-    local c = constants()
-    local ctx = {cx = 0, cy = -20, shell_speed = c.shell_speed, reach_min = 20, reach_max = 260, half_interval = 5}
-    local rules = computer.rules(s.index)
-    print(string.format("[AA-BENCH] %d asteroids with decoys, %d passes", n, passes))
-    local base
-    local function run(label, fn)
-      local prof = helpers.create_profiler()
-      for _ = 1, passes do for i = 1, n do fn(list[i]) end end
-      prof.stop()
-      prof.divide(passes * n)
-      localised_print{"", "[AA-BENCH] ", label, ": ", prof, " per call"}
-    end
-    run("baseline (empty function call)", function(tr) end)
-    run("a.valid", function(tr) local _ = tr.a.valid end)
-    run("a.name", function(tr) local _ = tr.a.name end)
-    run("a.unit_number", function(tr) local _ = tr.a.unit_number end)
-    run("a.health", function(tr) local _ = tr.a.health end)
-    run("a.position", function(tr) local _ = tr.a.position end)
-    run("a.position.x + .y", function(tr) local p = tr.a.position; local _ = p.x + p.y end)
-    run("d.valid", function(tr) local _ = tr.d.valid end)
-    run("register_on_object_destroyed (again)", function(tr) script.register_on_object_destroyed(tr.a) end)
-    run("d.teleport(cached position)", function(tr) tr.d.teleport(tr.cached) end)
-    run("d.health = same value", function(tr) tr.d.health = tr.dh or 1 end)
-    run("settings.global[...].value", function() local _ = settings.global["aa-max-shells"].value end)
-    run("prototypes.entity[name]", function(tr) local _ = prototypes.entity[tr.name] end)
-    run("catalogue()[name]", function(tr) local _ = computer.catalogue()[tr.name] end)
-    run("new table {x, y}", function(tr) local _ = {1, 2} end)
-    run("intercept (closed form, Lua only)", function(tr)
-      intercept(tr.cached[1], tr.cached[2], 0.01, 0.14, ctx)
-    end)
-    run("computer.allows", function(tr) computer.allows(rules, tr.name, tr.cached[1], tr.cached[2]) end)
-    run("count_tiles_filtered (radius 8)", function(tr)
-      local _ = s.count_tiles_filtered{position = tr.cached, radius = 8, name = FOUNDATION, limit = 1}
-    end)
-    run("dist via (dx)^2 + sqrt", function(tr)
-      local _ = math.sqrt((tr.cached[1] - 8) ^ 2 + (tr.cached[2] + 10) ^ 2)
-    end)
-    run("dist via dx*dx + sqrt", function(tr)
-      local dx, dy = tr.cached[1] - 8, tr.cached[2] + 10
-      local _ = math.sqrt(dx * dx + dy * dy)
-    end)
-    -- real moves: alternate between two points 1.5 tiles apart (like a decoy following its asteroid)
-    local flip = false
-    run("d.teleport(moved 1.5 tiles)", function(tr)
-      flip = not flip
-      tr.d.teleport({tr.cached[1] + (flip and 1.5 or 0), tr.cached[2]})
-    end)
-    run("d.teleport(moved 1.5 tiles, cached tables)", function(tr)
-      tr.alt = tr.alt or {tr.cached[1] + 1.5, tr.cached[2]}
-      flip = not flip
-      tr.d.teleport(flip and tr.alt or tr.cached)
-    end)
-    run("d.teleport(moved 40 tiles)", function(tr)
-      flip = not flip
-      tr.d.teleport({tr.cached[1] + (flip and 40 or 0), tr.cached[2]})
-    end)
-    for _, tr in pairs(list) do if tr.d.valid then tr.d.teleport(tr.cached) end end
+  profile_start = function()
+    P = {total = helpers.create_profiler(true), ticks = 0, asteroids = 0, asteroids_max = 0, found_max = 0}
   end,
-  profile_start = function(opts)
-    P = {t = {}, n = {}, no_safety = opts and opts.no_safety, skip = opts and opts.skip or {},
-      extra_alloc = opts and opts.extra_alloc}
-    if P.extra_alloc then print("[AA-PROFILE] extra allocation: " .. P.extra_alloc .. " tables per asteroid") end
-    for _, k in pairs(PROFILE_KEYS) do P.t[k] = helpers.create_profiler(true) end
-  end,
-  -- Profiler values can't be compared in Lua, so the worst tick is reported as a count
-  -- of asteroids updated (and scanned) in one tick.
   profile_report = function()
     if not P then return end
-    local n = P.n
-    local ticks = math.max(n.ticks or 0, 1)
-    print(string.format("[AA-PROFILE] ticks=%d asteroids/tick avg=%.1f max=%d scanned/scan max=%d decoys=%.1f safety_checks=%d tile_queries=%d teleports=%d creates=%d%s",
-      ticks, (n.asteroids or 0) / ticks, n.asteroids_max or 0, n.max_scanned or 0,
-      (n.decoy_samples or 0) / math.max(n.decoy_n or 0, 1), n.safety_checks or 0,
-      n.tile_queries or 0, n.teleports or 0, n.creates or 0, P.no_safety and " (hull check OFF)" or ""))
-    local vs, vn = 0, 0
-    for _, tr in pairs(storage.tracked) do
-      if tr.vx then vs, vn = vs + math.sqrt(tr.vx * tr.vx + tr.vy * tr.vy), vn + 1 end
-    end
-    if vn > 0 then print(string.format("[AA-PROFILE] mean asteroid speed relative to the platform: %.3f tiles/tick", vs / vn)) end
-    if n.alloc_samples then
-      print(string.format("[AA-PROFILE] alloc: %.2f KB per tick (%d of %d ticks measured, rest had a GC step)",
-        n.alloc_kb / n.alloc_samples, n.alloc_samples, ticks))
-    end
-    for _, k in pairs(PROFILE_KEYS) do
-      P.t[k].divide(ticks)
-      localised_print{"", "[AA-PROFILE] ", k, " per tick: ", P.t[k]}
-    end
+    local ticks = math.max(P.ticks, 1)
+    print(string.format("[AA-PROFILE] ticks=%d asteroids updated per tick: avg %.1f, max %d; asteroids found per scan tick: max %d",
+      P.ticks, P.asteroids / ticks, P.asteroids_max, P.found_max))
+    P.total.divide(ticks)
+    localised_print{"", "[AA-PROFILE] per tick: ", P.total}
   end,
   open_computer = function(player_index, unit_number)
     local c = storage.computers[unit_number]

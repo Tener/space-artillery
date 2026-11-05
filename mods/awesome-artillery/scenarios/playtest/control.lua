@@ -319,7 +319,6 @@ end
 -- Per-case invariants, checked every second; returns an error or nil.
 local function check_case()
   local case, decoys = storage.case, remote.call("awesome-artillery", "decoy_list")
-  for _, d in pairs(decoys) do storage.observed[d.name] = (storage.observed[d.name] or 0) + 1 end
   if case == "tc-none" or case == "tc-unpowered" then
     if #decoys > 0 or storage.stats.shells > 0 then
       return string.format("%d decoys, %d shells without a working computer", #decoys, storage.stats.shells)
@@ -529,20 +528,10 @@ script.on_event(defines.events.on_tick, function(e)
     end
     return
   end
-  if storage.test_until and storage.case == "perf-bench" then
-    if e.tick == 1800 then
-      remote.call("awesome-artillery", "bench", 50)
-      return script.finish_test(true)
-    end
-    return
-  end
   if storage.test_until and storage.case:find("^perf") then
     if e.tick == 600 then
-      local case = storage.case
-      remote.call("awesome-artillery", "profile_start", {no_safety = case == "perf-nosafe",
-        skip = {teleport = case == "perf-noteleport", register = case == "perf-noregister", health = case == "perf-nohealth"},
-        extra_alloc = tonumber(case:match("^perf%-alloc(%d+)$"))})
-      say("profiling from t=600 at wall %.3f", os and os.clock and os.clock() or -1)
+      remote.call("awesome-artillery", "profile_start")
+      say("profiling from t=600")
     end
     if e.tick >= storage.test_until then
       remote.call("awesome-artillery", "profile_report")
@@ -552,6 +541,12 @@ script.on_event(defines.events.on_tick, function(e)
     return
   end
   if storage.test_until then
+    -- decoys of rarer sizes live briefly: sample often so check_end sees them
+    if e.tick % 5 == 0 then
+      for name, n in pairs(remote.call("awesome-artillery", "decoys_by_name")) do
+        storage.observed[name] = (storage.observed[name] or 0) + n
+      end
+    end
     if e.tick % 60 == 0 then
       local err = check_case()
       if err then
