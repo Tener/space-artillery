@@ -1,9 +1,9 @@
 {
   "name": "awesome-artillery",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "title": "Awesome Artillery",
   "author": "tener",
-  "description": "Decoy-based artillery defense for space platforms. Throwaway playtest build.",
+  "description": "Space platform artillery shoots asteroids. A targeting computer picks which asteroids, by size, type and zone, with circuit control. Also makes all artillery turn, fire and fly faster (configurable).",
   "factorio_version": "2.1",
   "dependencies": ["base", "space-age"]
 }

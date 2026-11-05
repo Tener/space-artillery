@@ -1,0 +1,7 @@
+---------------------------------------------------------------------------------------------------
+Version: 0.1.0
+Date: 2026-11-06
+  Features:
+    - Artillery on space platforms shoots asteroids.
+    - Targeting computer: choose asteroid sizes, types and a zone; circuit signals can override each setting.
+    - Faster artillery rotation, shells and fire rate (startup settings, apply to all artillery).
