@@ -421,7 +421,7 @@ Runtime-global:
 ```
 mods/mod-list.json             mods enabled for the test runner
 mods/awesome-artillery/
-  info.json, changelog.txt, thumbnail.png (placeholder from a screenshot)
+  info.json, changelog.txt, thumbnail.png (crop of a showcase screenshot)
   settings.lua
   data-final-fixes.lua         decoys, turret ignore masks, computer, catalogue, speeds
   control.lua                  decoy controller, events, remote interface
@@ -476,7 +476,7 @@ No CI tests: GitHub Actions only builds the zip.
 - The exact research cost (1000 units), Artillery as a prerequisite, the recipe amounts
   and the extra ingredients (superconductor, tungsten plate, low density structure).
 - The remote interface ships with the mod.
-- The thumbnail is a placeholder from an in-game screenshot.
+- The thumbnail is a crop of a showcase screenshot the user took.
 
 ## Decided with the user
 
