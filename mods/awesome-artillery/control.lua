@@ -231,7 +231,8 @@ end
 
 -- Refresh wire topology for surface
 local function surface_topology(s_index, turrets, force)
-  local topo = storage.surface_topo and storage.surface_topo[s_index]
+  storage.surface_topo = storage.surface_topo or {}
+  local topo = storage.surface_topo[s_index]
   if not force and topo and (game.tick - topo.tick < 300) then return topo end
   local new_topo = targeting.update_surface_topology(s_index, turrets, storage.computers or {})
   new_topo.tick = game.tick

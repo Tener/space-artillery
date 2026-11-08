@@ -558,7 +558,7 @@ end)
 script.on_event(defines.events.on_gui_closed, function(e)
   if e.element and e.element.valid and e.element.name == "awe_art_tc" then
     e.element.destroy()
-    storage.open_computer[e.player_index] = nil
+    if storage.open_computer then storage.open_computer[e.player_index] = nil end
     M.sync_zones()
   end
 end)
@@ -567,7 +567,7 @@ script.on_event(defines.events.on_gui_click, function(e)
   if e.element and e.element.valid and e.element.name == "awe_art_tc_close" then
     local p = game.get_player(e.player_index)
     if p.gui.screen.awe_art_tc then p.gui.screen.awe_art_tc.destroy() end
-    storage.open_computer[e.player_index] = nil
+    if storage.open_computer then storage.open_computer[e.player_index] = nil end
     M.sync_zones()
   end
 end)
