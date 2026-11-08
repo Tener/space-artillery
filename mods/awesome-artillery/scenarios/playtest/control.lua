@@ -4,6 +4,8 @@
 
 local function say(fmt, ...) print("[PLAYTEST] " .. string.format(fmt, ...)) end
 
+local targeting = require("__awesome-artillery__/scripts/targeting")
+
 local SPEEDS = {0, 5, 10, 20} -- 0 = let the thrusters drive (natural is about 2)
 local SIZES = {"small", "medium", "big", "huge"}
 local CAUSES = {{"artillery-turret", "Artillery"}, {"gun-turret", "Guns"}, {"laser-turret", "Lasers"}, {"collision", "Hit hull"}}
@@ -361,6 +363,93 @@ end
 -- headless checks ------------------------------------------------------------------------
 
 -- Per-case invariants, checked every second; returns an error or nil.
+local function test_wiring_and_targeting(pf, comp_a)
+  local s = pf.surface
+  local turrets = s.find_entities_filtered{type = "artillery-turret"}
+
+  -- 1. Test math helpers: angular_sector and angle_diff_deg
+  assert(targeting.angular_sector(0, -100) == 0, "North angular sector must be 0")
+  assert(targeting.angular_sector(100, 0) == 4, "East angular sector must be 4")
+  assert(targeting.angular_sector(0, 100) == 8, "South angular sector must be 8")
+  assert(targeting.angular_sector(-100, 0) == 12, "West angular sector must be 12")
+
+  assert(targeting.angle_diff_deg(10, 350) == 20, "Diff between 10 and 350 must be 20")
+  assert(targeting.angle_diff_deg(0, 180) == 180, "Diff between 0 and 180 must be 180")
+  assert(targeting.angle_diff_deg(90, 270) == 180, "Diff between 90 and 270 must be 180")
+  assert(targeting.angle_diff_deg(45, 60) == 15, "Diff between 45 and 60 must be 15")
+  assert(targeting.angle_diff_deg(355, 5) == 10, "Diff between 355 and 5 must be 10")
+  say("math assertions: OK")
+
+  -- 2. Test initial topology without wires:
+  -- All 4 turrets should be unwired, and comp_a should have 0 wired turrets.
+  local topo0 = remote.call("awesome-artillery", "surface_topology", s.index, true)
+  assert(#topo0.unwired_turrets == 4, "Initially all 4 turrets must be unwired")
+  assert(targeting.wired_turret_count(comp_a.unit_number, topo0) == 0, "comp_a should have 0 wired turrets initially")
+  say("initial topology: 4 unwired, 0 wired to comp_a: OK")
+
+  -- 3. Connect Turret 1 & Turret 2 to Computer A (red wire)
+  local red = defines.wire_connector_id.circuit_red
+  local green = defines.wire_connector_id.circuit_green
+  local conn_comp_a_red = comp_a.get_wire_connector(red, true)
+  local conn_t1_red = turrets[1].get_wire_connector(red, true)
+  local conn_t2_red = turrets[2].get_wire_connector(red, true)
+  local c1_ok = conn_comp_a_red.connect_to(conn_t1_red, false)
+  local c2_ok = conn_comp_a_red.connect_to(conn_t2_red, false)
+  say("c1_ok=%s c2_ok=%s comp_net=%s t1_net=%s", tostring(c1_ok), tostring(c2_ok),
+    tostring(comp_a.get_circuit_network(red) and comp_a.get_circuit_network(red).network_id),
+    tostring(turrets[1].get_circuit_network(red) and turrets[1].get_circuit_network(red).network_id))
+
+  local topo1 = remote.call("awesome-artillery", "surface_topology", s.index, true)
+  assert(targeting.wired_turret_count(comp_a.unit_number, topo1) == 2, "comp_a should have 2 wired turrets")
+  assert(#topo1.unwired_turrets == 2, "2 turrets should remain unwired")
+  assert(topo1.turret_to_comp[turrets[1].unit_number] == comp_a.unit_number, "turret 1 mapped to comp_a")
+  assert(topo1.turret_to_comp[turrets[2].unit_number] == comp_a.unit_number, "turret 2 mapped to comp_a")
+  say("wiring turrets 1 and 2 to comp_a: OK")
+
+  -- 4. Create Computer B and connect Turret 3 via green wire
+  local comp_b = s.create_entity{name = "awe-art-targeting-computer", position = {-6.5, -18.5}, force = "player", raise_built = true}
+  local conn_comp_b_green = comp_b.get_wire_connector(green, true)
+  local conn_t3_green = turrets[3].get_wire_connector(green, true)
+  conn_comp_b_green.connect_to(conn_t3_green, false)
+
+  local topo2 = remote.call("awesome-artillery", "surface_topology", s.index, true)
+  assert(targeting.wired_turret_count(comp_a.unit_number, topo2) == 2, "comp_a has 2 turrets")
+  assert(targeting.wired_turret_count(comp_b.unit_number, topo2) == 1, "comp_b has 1 turret")
+  assert(#topo2.unwired_turrets == 1, "turret 4 remains unwired")
+  assert(topo2.turret_to_comp[turrets[3].unit_number] == comp_b.unit_number, "turret 3 mapped to comp_b")
+  say("wiring turret 3 to comp_b: OK")
+
+  -- 5. Disconnect Turret 2 from Computer A
+  conn_t2_red.disconnect_all()
+  local topo3 = remote.call("awesome-artillery", "surface_topology", s.index, true)
+  assert(targeting.wired_turret_count(comp_a.unit_number, topo3) == 1, "comp_a now has 1 turret (turret 1)")
+  assert(#topo3.unwired_turrets == 2, "turrets 2 and 4 are unwired")
+  say("disconnecting turret 2: OK")
+
+  -- 6. Test stickiness selection
+  -- Turret 1 (orientation 0 = North), Turret 4 (orientation 0.5 = South)
+  turrets[1].relative_turret_orientation = 0
+  turrets[4].relative_turret_orientation = 0.5
+  local aim_north = {turrets[1].position.x, turrets[1].position.y - 100}
+  local picked_north, diff_north = targeting.pick_sticky_turret({turrets[1], turrets[4]}, aim_north[1], aim_north[2])
+  assert(picked_north.unit_number == turrets[1].unit_number, "aim north should pick turret 1 (orientation North)")
+  assert(diff_north < 1, "diff north should be nearly 0")
+
+  local aim_south = {turrets[4].position.x, turrets[4].position.y + 100}
+  local picked_south, diff_south = targeting.pick_sticky_turret({turrets[1], turrets[4]}, aim_south[1], aim_south[2])
+  assert(picked_south.unit_number == turrets[4].unit_number, "aim south should pick turret 4 (orientation South)")
+  assert(diff_south < 1, "diff south should be nearly 0")
+  say("stickiness selection: OK")
+
+  -- Clean up created test entities / connections:
+  conn_t1_red.disconnect_all()
+  conn_t3_green.disconnect_all()
+  comp_b.destroy()
+  remote.call("awesome-artillery", "surface_topology", s.index, true)
+  return true
+end
+
+-- Per-case invariants, checked every second; returns an error or nil.
 local function check_case()
   local case, decoys = storage.case, remote.call("awesome-artillery", "decoy_list")
   if case == "tc-none" or case == "tc-unpowered" then
@@ -705,7 +794,9 @@ script.on_event(defines.events.on_tick, function(e)
       if not ok_sim then say("SIM RUN FAIL %s: %s", sim_name, tostring(run_err)); return script.finish_test(false) end
       say("sim %s: OK", sim_name)
     end
-    return script.finish_test(not enabled and fhs ~= nil and shell ~= nil and shell_tech ~= nil
+    local ok_wiring = test_wiring_and_targeting(pf, storage.computer)
+    say("wiring and targeting test: OK")
+    return script.finish_test(ok_wiring and not enabled and fhs ~= nil and shell ~= nil and shell_tech ~= nil
       and fhs.categories[1] ~= nil and shell.categories[1] ~= nil
       and shell_tech.prerequisites["awe-art-asteroid-ballistics"] ~= nil
       and tech.prerequisites["electromagnetic-science-pack"] ~= nil
@@ -714,6 +805,14 @@ script.on_event(defines.events.on_tick, function(e)
       and prom_ballistics_done and not prom_shell_auto and prom_tech.research_unit_count == 4000
       and rot_tech.research_unit_count == 2000 and vel_tech ~= nil
       and math.abs(base_rot - 0.001) < 1e-6 and math.abs(new_rot - 0.0013) < 1e-6 and ammo == 15)
+  end
+  if storage.test_until and storage.case == "tc-wiring" then
+    if e.tick == 5 then
+      local ok = test_wiring_and_targeting(pf, storage.computer)
+      say("tc-wiring test result: %s", tostring(ok))
+      return script.finish_test(ok == true)
+    end
+    return
   end
   if storage.test_until and storage.case:find("^perf") then
     if e.tick == 600 then

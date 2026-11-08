@@ -1,7 +1,13 @@
--- Decoy controller: keeps one invisible decoy per eligible asteroid at the asteroid's lead
--- point, with the asteroid's health, so vanilla artillery auto-targeting shoots it.
+-- Decoy controller: manages artillery targeting for asteroids.
+-- Features:
+-- 1. Wired computer binding: artillery turrets wired via red/green circuit network to a
+--    Targeting Computer are controlled exclusively by that computer.
+-- 2. Pure-stickiness orientation optimization: cannons prioritize targets closest to their
+--    current barrel orientation to eliminate unnecessary swivel latencies.
+-- 3. In-flight damage tracking: avoids wasting shells on asteroids already doomed.
 
 local computer = require("scripts.computer")
+local targeting = require("scripts.targeting")
 
 local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
@@ -40,6 +46,7 @@ local function init_storage()
   storage.turrets = storage.turrets or {}   -- surface index -> unit_number -> turret
   storage.tracked = storage.tracked or {}   -- registration number -> {a, d, surface, slot, seen, ...}
   storage.ctx = storage.ctx or {}           -- surface index -> ctx from the surface's last scan
+  storage.surface_topo = storage.surface_topo or {} -- surface index -> topology
   storage.interval = nil                    -- forces a bucket rebuild on the next tick
   storage.damage = {}                       -- force|shell -> asteroid name -> damage per shell
   storage.kills = storage.kills or {}       -- force index -> chunk name -> medium/big/huge artillery kills
@@ -95,10 +102,12 @@ local function add_turret(t)
   local list = storage.turrets[t.surface.index] or {}
   list[t.unit_number] = t
   storage.turrets[t.surface.index] = list
+  if storage.surface_topo then storage.surface_topo[t.surface.index] = nil end
 end
 
 local function rescan()
   storage.turrets = {}
+  storage.surface_topo = {}
   for _, s in pairs(game.surfaces) do
     for _, t in pairs(s.find_entities_filtered{type = "artillery-turret"}) do add_turret(t) end
   end
@@ -127,8 +136,6 @@ local function shell_damage(force, shell, name)
   return total
 end
 
--- ctx: per-update values read once (settings, turret positions); see update_surface.
--- Every asteroid in the catalogue has a decoy prototype (both come from max_health asteroids).
 local function eligible(name, health, force, ctx)
   if size_of(name) < ctx.min_rank then return false end
   local dmg = shell_damage(force, ctx.shell, name)
@@ -137,30 +144,19 @@ end
 
 local function dist(x1, y1, x2, y2) return math.sqrt((x1 - x2) ^ 2 + (y1 - y2) ^ 2) end
 
--- Lead from the turrets' centre (vanilla picks the firing turret, often not the nearest
--- one; measured). Solves |r + v t| = s t for the shell flight time t, where r is the
--- asteroid's offset from the centre. Returns the aim point, or nil if it is outside the
--- band the turrets can reach (range/min range widened by the turrets' spread).
--- The error from the firing turret not being at the centre is left to shell speed research.
 local function intercept(px, py, vx, vy, ctx)
-  -- the decoy stays put until the next update, and the shot can come at any point in
-  -- between: aim for the middle of the interval, which halves the worst-case staleness
   px, py = px + vx * ctx.half_interval, py + vy * ctx.half_interval
   local rx, ry = px - ctx.cx, py - ctx.cy
   local s = ctx.shell_speed
-  local a = vx * vx + vy * vy - s * s -- < 0: shells are faster than asteroids
+  local a = vx * vx + vy * vy - s * s
   local b = 2 * (rx * vx + ry * vy)
   local c = rx * rx + ry * ry
-  local t = (-b - math.sqrt(b * b - 4 * a * c)) / (2 * a) -- the positive root
+  local t = (-b - math.sqrt(b * b - 4 * a * c)) / (2 * a)
   local d = s * t
   if d < ctx.reach_min or d > ctx.reach_max then return nil end
   return px + vx * t, py + vy * t
 end
 
--- Hull outline per surface: one box per chunk that has foundation, with the exact tile
--- extent inside that chunk. Rebuilt on tile changes and every 10 s (tiles can also be
--- destroyed by asteroid impacts). A stale outline only makes the check slower, not unsafe,
--- because points near any box still get the exact tile query.
 local function hull_boxes(s)
   storage.hull = storage.hull or {}
   local h = storage.hull[s.index]
@@ -202,10 +198,8 @@ local function drop_decoy(tr)
   tr.d = nil
 end
 
-local TELEPORT_MIN = 0.5 -- tiles; smaller aim changes don't move the decoy (blast radius is 4)
+local TELEPORT_MIN = 0.5
 
--- Work is spread over the interval: every tracked asteroid has a slot (registration
--- number % interval) and is updated only on the tick of that slot.
 local function rebuild_buckets(interval)
   storage.buckets, storage.interval = {}, interval
   for id, tr in pairs(storage.tracked) do
@@ -235,6 +229,16 @@ local function untrack(id)
   if b then b[id] = nil end
 end
 
+-- Refresh wire topology for surface
+local function surface_topology(s_index, turrets, force)
+  local topo = storage.surface_topo and storage.surface_topo[s_index]
+  if not force and topo and (game.tick - topo.tick < 300) then return topo end
+  local new_topo = targeting.update_surface_topology(s_index, turrets, storage.computers or {})
+  new_topo.tick = game.tick
+  storage.surface_topo[s_index] = new_topo
+  return new_topo
+end
+
 local function update_asteroid(tr, ctx)
   local s, force, rules, interval = ctx.s, ctx.force, ctx.rules, ctx.interval
   local a, p, name = tr.a, tr.a.position, tr.name
@@ -251,7 +255,53 @@ local function update_asteroid(tr, ctx)
   local moved = (ax - aim[1]) ^ 2 + (ay - aim[2]) ^ 2 >= TELEPORT_MIN * TELEPORT_MIN
   aim[1], aim[2] = ax, ay
   if not safe(s, aim, ctx) then return drop_decoy(tr) end
-  if rules and not computer.allows(rules, name, ax, ay) then return drop_decoy(tr) end
+
+  local topo = ctx.topo
+  local matching_comps = {}
+  local allowed_any = false
+
+  if rules then
+    for comp_unit, r in pairs(rules) do
+      if computer.allows({r}, name, ax, ay) then
+        allowed_any = true
+        matching_comps[comp_unit] = true
+      end
+    end
+    if not allowed_any then return drop_decoy(tr) end
+  end
+
+  -- Determine if any turret is authorized and available to shoot this target.
+  -- 1. If any matching computer has wired turrets, assign target stickily among them.
+  -- 2. If matching computer has no wired turrets, unwired platform turrets can engage.
+  local candidate_turrets = {}
+  local has_wired_system = false
+
+  if topo then
+    for comp_unit in pairs(matching_comps) do
+      local wired = topo.comp_to_turrets[comp_unit]
+      if wired and #wired > 0 then
+        has_wired_system = true
+        for _, t in pairs(wired) do
+          if t.valid then candidate_turrets[#candidate_turrets + 1] = t end
+        end
+      end
+    end
+
+    if not has_wired_system and topo.unwired_turrets then
+      for _, t in pairs(topo.unwired_turrets) do
+        if t.valid then candidate_turrets[#candidate_turrets + 1] = t end
+      end
+    end
+  end
+
+  if #candidate_turrets == 0 then return drop_decoy(tr) end
+
+  -- Sticky orientation: candidate turret closest to this heading is chosen
+  local best_turret, angle_diff = targeting.pick_sticky_turret(candidate_turrets, ax, ay)
+  if best_turret and best_turret.valid then
+    best_turret.artillery_auto_targeting = true
+  end
+
   if tr.d and tr.d.valid then
     if moved then tr.d.teleport(aim) end
   else
@@ -259,25 +309,33 @@ local function update_asteroid(tr, ctx)
     tr.dh = nil
   end
   if tr.d and tr.dh ~= health then tr.d.health = health; tr.dh = health end
+
   if storage.debug then
     rendering.draw_circle{color = {1, 0.2, 0.2}, radius = 1, width = 2, target = aim, surface = s, time_to_live = interval + 1}
     rendering.draw_line{color = {1, 0.6, 0.2}, width = 1, from = a, to = aim, surface = s, time_to_live = interval + 1}
   end
 end
 
--- Once per interval per surface: rebuild the surface's ctx (shared by its asteroids' slot
--- updates until the next scan) and register asteroids in reach. Asteroids the scan didn't
--- see are dropped when their slot comes up.
+-- Scan surface once per interval: collects turrets, builds topology, resets gated auto_targeting
 local function scan_surface(s, turrets, interval)
   local c = constants()
   local force = s.platform.force
   local range = c.range * (1 + force.artillery_range_modifier)
-  -- read once per interval: turret positions, settings, hull outline
   local g = settings.global
+  local topo = surface_topology(s.index, turrets)
+
+  -- Gate auto_targeting: any turret wired to a computer defaults to false until assigned a target
+  for comp_unit, wired in pairs(topo.comp_to_turrets) do
+    for _, t in pairs(wired) do
+      if t.valid then t.artillery_auto_targeting = false end
+    end
+  end
+
   local ctx = {s = s, force = force, interval = interval, scan_tick = game.tick, turrets = {},
     min_rank = SIZE_RANK[g["awe-art-min-size"].value], max_shells = g["awe-art-max-shells"].value,
-    blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s)}
+    blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s), topo = topo}
   storage.ctx[s.index] = ctx
+
   local cx, cy = 0, 0
   local has_promethium, has_tungsten, has_steel = false, false, false
   for i, t in pairs(turrets) do
@@ -297,19 +355,25 @@ local function scan_surface(s, turrets, interval)
   local spread = 0
   for _, t in pairs(ctx.turrets) do spread = math.max(spread, dist(cx, cy, t[1], t[2])) end
   ctx.cx, ctx.cy, ctx.shell_speed, ctx.half_interval = cx, cy, c.shell_speed * shell_velocity_mult(force), interval / 2
-  -- some turret can reach a point whose distance from the centre is within this band
   ctx.reach_min, ctx.reach_max = math.max(0, c.min_range - spread), range + spread
-  -- targeting computers: nil rules = no restriction (only when computers aren't required and none are built)
-  local rules, present = computer.rules(s.index)
-  if not present and not settings.global["awe-art-require-computer"].value then rules = nil end
-  ctx.rules = rules
-  if rules and #rules == 0 then return 0 end -- nothing allowed; unseen asteroids are dropped in their slots
-  -- TODO(perf): every asteroid in this circle gets a full update, even ones that can never
-  -- get a decoy. Possible improvements, worth it when computers restrict targeting:
-  --  * name prefilter: per update, the set of asteroid names that could pass (min size,
-  --    computers' sizes/chunks, shell limit at full health); skip others after a.name.
-  --  * scan only the computers' zones (sector bounding boxes) instead of the full circle.
-  --  * update asteroids without a decoy less often (see the per-asteroid interval plan).
+
+  -- Get working rules mapped by computer unit_number
+  local rules_by_comp = {}
+  local present = false
+  for _, comp in pairs(storage.computers or {}) do
+    if comp.entity.valid and comp.entity.surface.index == s.index and comp.entity.name == computer.NAME then
+      present = true
+      local r = computer.effective(comp)
+      if r then rules_by_comp[comp.entity.unit_number] = r end
+    end
+  end
+
+  if not present and not settings.global["awe-art-require-computer"].value then
+    rules_by_comp = nil
+  end
+  ctx.rules = rules_by_comp
+  if rules_by_comp and next(rules_by_comp) == nil then return 0 end
+
   local found = s.find_entities_filtered{type = "asteroid", position = {cx, cy}, radius = range + spread}
   for _, a in pairs(found) do
     local id = script.register_on_object_destroyed(a)
@@ -324,8 +388,6 @@ local function scan_surface(s, turrets, interval)
   return #found
 end
 
--- This tick's slot: update its asteroids, or drop the ones the last scan of their surface
--- didn't see (out of reach, not allowed by any computer, or no artillery left).
 local function update_slot(slot)
   local bucket = storage.buckets[slot]
   if not bucket then return 0 end
@@ -343,15 +405,14 @@ local function update_slot(slot)
   return n
 end
 
--- returns the number of asteroids found (for profiling)
 local function scan_due(tick, interval)
   local found = 0
   for index, list in pairs(storage.turrets) do
-    -- surfaces scan on different ticks of the interval
     if (tick + index) % interval == 0 then
       local s = game.get_surface(index)
       if not (s and s.valid and s.platform) then
         storage.turrets[index], storage.ctx[index] = nil, nil
+        if storage.surface_topo then storage.surface_topo[index] = nil end
       else
         local turrets = {}
         for k, t in pairs(list) do
@@ -364,8 +425,6 @@ local function scan_due(tick, interval)
   return found
 end
 
--- Profiling (headless measurement only; not saved), enabled via remote profile_start.
--- Profiler values can't be compared in Lua, so the worst tick is reported as counts.
 local P
 
 local function update(tick, interval)
@@ -392,7 +451,12 @@ script.on_event(defines.events.on_object_destroyed, function(e) untrack(e.regist
 local function on_built(e)
   local ent = e.entity or e.destination
   if not (ent and ent.valid) then return end
-  if computer.is_computer(ent) then computer.add(ent, e.tags) else add_turret(ent) end
+  if computer.is_computer(ent) then
+    computer.add(ent, e.tags)
+    if storage.surface_topo and ent.surface then storage.surface_topo[ent.surface.index] = nil end
+  else
+    add_turret(ent)
+  end
 end
 for _, ev in pairs{defines.events.on_built_entity, defines.events.on_robot_built_entity,
   defines.events.on_space_platform_built_entity, defines.events.script_raised_built, defines.events.script_raised_revive} do
@@ -476,7 +540,6 @@ commands.add_command("awe-art-debug", "Toggle drawing of artillery decoys (red c
   if p then p.print(msg) else print(msg) end
 end)
 
--- Read-only view for scenarios and tests.
 remote.add_interface("awesome-artillery", {
   decoy_count = function()
     local n = 0
@@ -490,7 +553,6 @@ remote.add_interface("awesome-artillery", {
     end
     return out
   end,
-  -- decoys by asteroid name, e.g. {["medium-metallic-asteroid"] = 3}
   decoys_by_name = function()
     local out = {}
     for _, tr in pairs(storage.tracked) do
@@ -522,7 +584,12 @@ remote.add_interface("awesome-artillery", {
   set_computer_cfg = function(unit_number, cfg)
     computer.set_cfg(unit_number, cfg)
   end,
-  -- only the owning mod may change its runtime-global settings
+  surface_topology = function(surface_index, force)
+    local list = storage.turrets[surface_index] or {}
+    local turrets = {}
+    for _, t in pairs(list) do if t.valid then turrets[#turrets + 1] = t end end
+    return surface_topology(surface_index, turrets, force)
+  end,
   set_min_size = function(size) settings.global["awe-art-min-size"] = {value = size} end,
   set_interval = function(ticks) settings.global["awe-art-update-interval"] = {value = ticks} end,
 })

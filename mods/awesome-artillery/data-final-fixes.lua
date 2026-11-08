@@ -447,13 +447,12 @@ do
         {"big-metallic-asteroid", -8, -60, 0.01, 0.035},
       }
       local idx = 0
-      local fallback_decoys = {}
       local function spawn_next()
         local has_mod = remote.interfaces["awesome-artillery"] ~= nil
         if has_mod and not configured then
           configured = true
           remote.call("awesome-artillery", "set_interval", 10)
-          remote.call("awesome-artillery", "set_debug", true)
+          remote.call("awesome-artillery", "set_debug", false)
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = true, medium = true, big = true, huge = true},
@@ -466,19 +465,9 @@ do
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
           if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
         end
-        for k, pair in pairs(fallback_decoys) do
-          if not (pair[1] and pair[1].valid) then
-            if pair[2] and pair[2].valid then pair[2].destroy() end
-            fallback_decoys[k] = nil
-          end
-        end
         idx = (idx % #wave) + 1
         local w = wave[idx]
-        local a = s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
-        if a and not has_mod then
-          local d = s.create_entity{name = "awe-art-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
-          fallback_decoys[#fallback_decoys + 1] = {a, d}
-        end
+        s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
       end
       local story_table = {{
         {name = "init", condition = story_elapsed_check(0.2), action = function() spawn_next() end},
@@ -515,6 +504,7 @@ do
       game.simulation.camera_player = player
       game.simulation.camera_position = {0, -8.5}
       game.simulation.camera_zoom = 0.85
+      game.simulation.camera_alt_info = true
       game.simulation.hide_cursor = true
 
       local function make(name, pos, dir, recipe)
@@ -562,10 +552,11 @@ do
       require("__core__/lualib/story")
       local player = game.simulation.create_test_player{name = "Spaceman"}
       local force = player.force
-      force.set_gun_speed_modifier("artillery-shell", 1.0)
+      force.set_ammo_damage_modifier("artillery-shell", 2.5)
+      force.set_gun_speed_modifier("artillery-shell", 1.2)
       if force.technologies["awe-art-artillery-shell-velocity-1"] then force.technologies["awe-art-artillery-shell-velocity-1"].level = 5 end
       for _, r in pairs{"advanced-metallic-asteroid-crushing", "advanced-carbonic-asteroid-crushing",
-        "advanced-oxide-asteroid-crushing", "ice-melting", "coal-synthesis", "explosives",
+        "advanced-oxide-asteroid-crushing", "iron-ore-melting", "ice-melting", "coal-synthesis", "explosives",
         "awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell"} do
         if force.recipes[r] then force.recipes[r].enabled = true end
       end
@@ -586,8 +577,9 @@ do
 
       player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -26}
-      game.simulation.camera_zoom = 0.45
+      game.simulation.camera_position = {0, -25}
+      game.simulation.camera_zoom = 0.46
+      game.simulation.camera_alt_info = true
       game.simulation.hide_cursor = true
 
       local function make(name, pos, dir, recipe)
@@ -600,28 +592,43 @@ do
         return e
       end
 
-      for _, pos in pairs{{-6, -6}, {9, -6}, {-6, 5}, {9, 5}} do make("substation", pos) end
-      for _, x in pairs{-10.5, 10.5} do make("solar-panel", {x, -1.5}); make("solar-panel", {x, 1.5}) end
+      for _, pos in pairs{{-6, -5}, {9, -5}, {-6, 5}, {9, 5}} do make("substation", pos) end
+      for _, x in pairs{-11.5, 11.5} do make("solar-panel", {x, -1.5}); make("solar-panel", {x, 1.5}) end
       local eei = make("electric-energy-interface", {0, 8})
-      if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
+      if eei then eei.power_production = 1e8; eei.electric_buffer_size = 1e8 end
 
-      make("crusher", {-9, -7.5}, defines.direction.south, "advanced-metallic-asteroid-crushing")
-      make("crusher", {-9, -2.5}, defines.direction.south, "advanced-carbonic-asteroid-crushing")
-      make("crusher", {-9, 2.5}, defines.direction.south, "advanced-oxide-asteroid-crushing")
-      make("chemical-plant", {-5.5, -2.5}, defines.direction.east, "coal-synthesis")
-      make("chemical-plant", {-5.5, 2.5}, defines.direction.east, "explosives")
+      make("crusher", {-10, -2.5}, defines.direction.south, "advanced-metallic-asteroid-crushing")
+      make("crusher", {-10, 2.5}, defines.direction.south, "advanced-carbonic-asteroid-crushing")
+      make("crusher", {8, 2.5}, defines.direction.south, "advanced-oxide-asteroid-crushing")
+      make("chemical-plant", {-6.5, 1.5}, defines.direction.east, "coal-synthesis")
+      make("chemical-plant", {-6.5, 5.5}, defines.direction.east, "explosives")
 
+      local a_melt = make("foundry", {-7.5, -7.5}, defines.direction.east, "iron-ore-melting")
       local a_fhs = make("foundry", {-1.5, -7.5}, defines.direction.north, "awe-art-flash-hardened-steel")
       local a_sh = make("foundry", {4.5, -7.5}, defines.direction.north, "awe-art-steel-artillery-shell")
-      assert(a_fhs and a_sh, "foundry nil in sim_steel_shell")
+      assert(a_melt and a_fhs and a_sh, "foundry nil in sim_steel_shell")
+      make("pipe", {-4.5, -8.5})
       make("fast-inserter", {1.5, -7.5}, defines.direction.west)
       make("fast-inserter", {4.5, -10.5}, defines.direction.south)
 
-      local turret = make("artillery-turret", {4.5, -12.5})
-      assert(turret, "turret nil in sim_steel_shell")
-      turret.insert{name = "awe-art-steel-artillery-shell", count = 10}
-      make("awe-art-targeting-computer", {-1.5, -12.5})
-      for _, x in pairs{-6, 0, 8} do
+      local turret_steel = make("artillery-turret", {4.5, -12.5})
+      local turret_tungsten = make("artillery-turret", {-6.5, -12.5})
+      assert(turret_steel and turret_tungsten, "turret nil in sim_steel_shell")
+      turret_steel.insert{name = "awe-art-steel-artillery-shell", count = 10}
+      turret_tungsten.insert{name = "artillery-shell", count = 10}
+
+      local chest_tungsten = make("requester-chest", {-6.5, -9.5})
+      if chest_tungsten then
+        chest_tungsten.insert{name = "artillery-shell", count = 20}
+        local lp = chest_tungsten.get_requester_point()
+        if lp and lp.sections_count > 0 then
+          lp.get_section(1).set_slot(1, {value = "artillery-shell", min = 20})
+        end
+      end
+      make("fast-inserter", {-6.5, -10.5}, defines.direction.south)
+
+      local comp = make("awe-art-targeting-computer", {-1.0, -12.5})
+      for _, x in pairs{-9, 0, 9} do
         local g = make("gun-turret", {x, -16})
         if g then g.insert{name = "piercing-rounds-magazine", count = 50} end
       end
@@ -631,6 +638,17 @@ do
         if remote.interfaces["awesome-artillery"] and not configured then
           configured = true
           remote.call("awesome-artillery", "set_interval", 10)
+          remote.call("awesome-artillery", "set_debug", false)
+          if comp and comp.valid then
+            remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
+              sizes = {small = true, medium = true, big = true, huge = true},
+              dir = 0, arc = 120, near = 30, far = 65,
+            })
+          end
+        end
+        if a_melt and a_melt.valid then
+          a_melt.insert{name = "iron-ore", count = 20}
+          a_melt.insert{name = "calcite", count = 5}
         end
         if a_fhs and a_fhs.valid then
           a_fhs.insert_fluid{name = "molten-iron", amount = 500}
@@ -643,36 +661,32 @@ do
           a_sh.insert{name = "explosives", count = 20}
           a_sh.insert{name = "radar", count = 5}
         end
-        if turret and turret.valid then turret.insert{name = "awe-art-steel-artillery-shell", count = 5} end
+        if turret_steel and turret_steel.valid then turret_steel.insert{name = "awe-art-steel-artillery-shell", count = 5} end
+        if turret_tungsten and turret_tungsten.valid then turret_tungsten.insert{name = "artillery-shell", count = 5} end
+        if chest_tungsten and chest_tungsten.valid then chest_tungsten.insert{name = "artillery-shell", count = 5} end
       end
       stock_craft()
 
       local wave = {
-        {"medium-metallic-asteroid", -8, -46, 0.01, 0.04},
-        {"medium-oxide-asteroid", 10, -48, -0.01, 0.04},
-        {"medium-carbonic-asteroid", 2, -47, 0.0, 0.04},
+        {"medium-metallic-asteroid", 6, -48, -0.005, 0.04},
+        {"big-oxide-asteroid", -8, -50, 0.01, 0.035},
+        {"medium-carbonic-asteroid", 10, -47, -0.01, 0.04},
+        {"huge-metallic-asteroid", -4, -52, 0.005, 0.03},
+        {"big-carbonic-asteroid", 2, -49, 0.0, 0.035},
       }
       local idx = 0
-      local fallback_decoys = {}
       local function step()
         stock_craft()
-        for k, pair in pairs(fallback_decoys) do
-          if not (pair[1] and pair[1].valid) then
-            if pair[2] and pair[2].valid then pair[2].destroy() end
-            fallback_decoys[k] = nil
-          end
+        for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
+          if a.position.y > -20 or a.position.y < -70 or math.abs(a.position.x) > 40 then a.destroy() end
         end
         idx = (idx % #wave) + 1
         local w = wave[idx]
-        local a = s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
-        if a and not remote.interfaces["awesome-artillery"] then
-          local d = s.create_entity{name = "awe-art-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
-          fallback_decoys[#fallback_decoys + 1] = {a, d}
-        end
+        s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
       end
       local story_table = {{
         {name = "init", condition = story_elapsed_check(0.2), action = function() step() end},
-        {name = "loop", condition = story_elapsed_check(2.0), action = function() step(); story_jump_to(storage.story, "loop") end},
+        {name = "loop", condition = story_elapsed_check(1.8), action = function() step(); story_jump_to(storage.story, "loop") end},
       }}
       tip_story_init(story_table)
     ]],
@@ -711,6 +725,7 @@ do
       game.simulation.camera_player = player
       game.simulation.camera_position = {0, -32}
       game.simulation.camera_zoom = 0.42
+      game.simulation.camera_alt_info = true
       game.simulation.hide_cursor = true
 
       local function make(name, pos, dir, recipe)
@@ -748,12 +763,12 @@ do
         {"huge-oxide-asteroid", -12, -56, 0.01, 0.03},
       }
       local idx = 0
-      local fallback_decoys = {}
       local function step()
         local has_mod = remote.interfaces["awesome-artillery"] ~= nil
         if has_mod and not configured then
           configured = true
           remote.call("awesome-artillery", "set_interval", 10)
+          remote.call("awesome-artillery", "set_debug", false)
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = true, medium = true, big = true, huge = true},
@@ -779,19 +794,9 @@ do
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
           if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
         end
-        for k, pair in pairs(fallback_decoys) do
-          if not (pair[1] and pair[1].valid) then
-            if pair[2] and pair[2].valid then pair[2].destroy() end
-            fallback_decoys[k] = nil
-          end
-        end
         idx = (idx % #wave) + 1
         local w = wave[idx]
-        local a = s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
-        if a and not has_mod then
-          local d = s.create_entity{name = "awe-art-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
-          fallback_decoys[#fallback_decoys + 1] = {a, d}
-        end
+        s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
       end
       local story_table = {{
         {name = "init", condition = story_elapsed_check(0.2), action = function() step() end},
@@ -827,7 +832,7 @@ do
       order = base_order .. "-z[awe-art-b]",
       tag = "[item=awe-art-steel-artillery-shell]",
       dependencies = {"awe-art-space-artillery"},
-      trigger = {type = "research", technology = "awe-art-targeting-computer"},
+      trigger = {type = "research", technology = "awe-art-steel-artillery-shell"},
       simulation = sim_steel_shell,
     },
     {
@@ -838,7 +843,7 @@ do
       order = base_order .. "-z[awe-art-c]",
       tag = "[item=awe-art-promethium-artillery-shell]",
       dependencies = {"awe-art-steel-artillery-shell"},
-      trigger = {type = "research", technology = "awe-art-promethium-ballistics"},
+      trigger = {type = "research", technology = "awe-art-promethium-artillery-shell"},
       simulation = sim_promethium_shell,
     },
   }

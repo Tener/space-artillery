@@ -171,6 +171,7 @@ local function effective(c, preview)
   end
   return r
 end
+M.effective = effective
 
 -- Working rules on a surface, and whether any built computer (working or not) is there.
 function M.rules(surface_index)
@@ -239,7 +240,7 @@ end
 
 -- GUI ---------------------------------------------------------------------------------
 
-local function describe(r)
+local function describe(r, wired_count)
   if not r then
     return "[img=utility/status_not_working] [color=1,0.45,0.45]Off (no power or switched off by signal)[/color]"
   end
@@ -253,9 +254,12 @@ local function describe(r)
   local badge = r.ghost
     and "[img=utility/status_blue] [color=0.7,0.85,1]Ghost (applies once built):[/color] "
     or "[img=utility/status_working] [font=default-semibold]Active:[/font] "
-  local text = string.format("%s%s · %s · %d° ±%d° · %d–%d tiles", badge,
+  local cannons_info = (wired_count and wired_count > 0)
+    and string.format(" · [font=default-bold]Wired cannons:[/font] %d", wired_count)
+    or " · [color=0.9,0.7,0.4]All unwired platform cannons[/color]"
+  local text = string.format("%s%s · %s · %d° ±%d° · %d–%d tiles%s", badge,
     #sizes > 0 and table.concat(sizes, ", ") or "none",
-    table.concat(types, " "), r.dir, math.floor(r.arc / 2), r.near, r.far)
+    table.concat(types, " "), r.dir, math.floor(r.arc / 2), r.near, r.far, cannons_info)
   if #r.inputs > 0 then
     text = text .. "  [color=0.6,0.9,0.6](circuit: " .. table.concat(r.inputs, ", ") .. ")[/color]"
   end
@@ -276,15 +280,27 @@ local function signal_toggle(parent, key, cfg, caption, tooltip)
   return flow
 end
 
+local function get_wired_count(c)
+  if not (c and c.entity and c.entity.valid) then return 0 end
+  local surface_index = c.entity.surface.index
+  local topo = storage.surface_topo and storage.surface_topo[surface_index]
+  if topo and topo.comp_to_turrets then
+    local list = topo.comp_to_turrets[c.entity.unit_number]
+    return list and #list or 0
+  end
+  return 0
+end
+
 local function sync_control_states(f, c)
   if not (f and f.valid and c and c.entity.valid) then return end
   local body = f.inside and f.inside.body
   if not body then return end
   local cfg = c.cfg
   local r = effective(c, true)
+  local wired_count = get_wired_count(c)
 
   if f.inside.subheader and f.inside.subheader.awe_art_tc_now then
-    f.inside.subheader.awe_art_tc_now.caption = describe(r)
+    f.inside.subheader.awe_art_tc_now.caption = describe(r, wired_count)
   end
 
   -- Enable/disable manual size checkboxes when circuit min-size override is active
@@ -375,7 +391,7 @@ function M.open(p, entity)
   subheader.style.horizontally_stretchable = true
   subheader.style.vertical_align = "center"
   subheader.style.padding = {6, 12, 6, 12}
-  local now = subheader.add{type = "label", name = "awe_art_tc_now", caption = describe(effective(c, true))}
+  local now = subheader.add{type = "label", name = "awe_art_tc_now", caption = describe(effective(c, true), get_wired_count(c))}
   now.style.single_line = false
   now.style.maximal_width = 500
 
@@ -606,7 +622,7 @@ local function on_textfield_edit(e, confirm)
         M.sync_zones()
         local f = p.gui.screen.awe_art_tc
         if f and f.inside and f.inside.subheader and f.inside.subheader.awe_art_tc_now then
-          f.inside.subheader.awe_art_tc_now.caption = describe(effective(c, true))
+          f.inside.subheader.awe_art_tc_now.caption = describe(effective(c, true), get_wired_count(c))
         end
       elseif confirm then
         e.element.text = tostring(c.cfg[key])
