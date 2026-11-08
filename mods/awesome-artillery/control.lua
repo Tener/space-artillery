@@ -575,14 +575,17 @@ remote.add_interface("awesome-artillery", {
     localised_print{"", "[AA-PROFILE] per tick: ", P.total}
   end,
   open_computer = function(player_index, unit_number)
-    local c = storage.computers[unit_number]
+    computer.init()
+    local c = storage.computers and storage.computers[unit_number]
     if c then computer.open(game.get_player(player_index), c.entity) end
   end,
   computer_cfg = function(unit_number)
-    local c = storage.computers[unit_number]
+    computer.init()
+    local c = storage.computers and storage.computers[unit_number]
     return c and c.cfg
   end,
   set_computer_cfg = function(unit_number, cfg)
+    computer.init()
     computer.set_cfg(unit_number, cfg)
   end,
   test_gui_check = function(e)

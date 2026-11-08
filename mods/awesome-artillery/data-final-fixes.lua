@@ -400,8 +400,8 @@ do
 
       player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -34}
-      game.simulation.camera_zoom = 0.42
+      game.simulation.camera_position = {0, -28}
+      game.simulation.camera_zoom = 0.54
       game.simulation.hide_cursor = true
 
       local function make(name, pos, dir)
@@ -452,14 +452,14 @@ do
 
       local configured = false
       local wave = {
-        {"medium-metallic-asteroid", -14, -75, 0.01, 0.035},
-        {"small-metallic-asteroid", 2, -72, 0.0, 0.04},
-        {"medium-carbonic-asteroid", 12, -78, -0.01, 0.035},
-        {"big-oxide-asteroid", 0, -82, 0.0, 0.03},
-        {"huge-promethium-asteroid", 8, -85, -0.005, 0.025},
-        {"small-oxide-asteroid", -4, -74, 0.002, 0.04},
-        {"medium-metallic-asteroid", 18, -76, -0.02, 0.035},
-        {"big-metallic-asteroid", -8, -80, 0.01, 0.03},
+        {"medium-metallic-asteroid", -10, -56, 0.01, 0.035},
+        {"small-metallic-asteroid", 2, -52, 0.0, 0.04},
+        {"medium-carbonic-asteroid", 8, -58, -0.01, 0.035},
+        {"big-oxide-asteroid", 0, -60, 0.0, 0.03},
+        {"huge-promethium-asteroid", 6, -62, -0.005, 0.025},
+        {"small-oxide-asteroid", -3, -54, 0.002, 0.04},
+        {"medium-metallic-asteroid", 12, -56, -0.02, 0.035},
+        {"big-metallic-asteroid", -6, -60, 0.01, 0.03},
       }
       local idx = 0
       local function spawn_next()
@@ -471,7 +471,7 @@ do
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = false, medium = true, big = true, huge = true},
-              dir = 0, arc = 120, near = 30, far = 100,
+              dir = 0, arc = 120, near = 30, far = 56,
             })
           end
         end
@@ -480,7 +480,7 @@ do
         if chest_steel and chest_steel.valid then chest_steel.insert{name = "awe-art-steel-artillery-shell", count = 5} end
         if chest_prom and chest_prom.valid then chest_prom.insert{name = "awe-art-promethium-artillery-shell", count = 5} end
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
-          if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
+          if a.position.y > -15 or a.position.y < -75 or math.abs(a.position.x) > 35 then a.destroy() end
         end
         idx = (idx % #wave) + 1
         local w = wave[idx]
@@ -595,8 +595,8 @@ do
 
       player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -32}
-      game.simulation.camera_zoom = 0.44
+      game.simulation.camera_position = {0, -26}
+      game.simulation.camera_zoom = 0.54
       game.simulation.camera_alt_info = true
       game.simulation.hide_cursor = true
 
@@ -687,7 +687,7 @@ do
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = false, medium = true, big = true, huge = true},
-              dir = 0, arc = 120, near = 30, far = 100,
+              dir = 0, arc = 120, near = 30, far = 56,
             })
           end
         end
@@ -710,19 +710,19 @@ do
       stock_craft()
 
       local wave = {
-        {"medium-metallic-asteroid", 8, -75, -0.005, 0.035},
-        {"small-metallic-asteroid", 2, -72, 0.0, 0.04},
-        {"big-carbonic-asteroid", -10, -80, 0.01, 0.035},
-        {"huge-metallic-asteroid", 4, -85, -0.002, 0.03},
-        {"small-oxide-asteroid", -3, -74, 0.002, 0.04},
-        {"medium-oxide-asteroid", -6, -78, 0.005, 0.035},
-        {"big-metallic-asteroid", 12, -82, -0.008, 0.035},
+        {"medium-metallic-asteroid", 6, -56, -0.005, 0.035},
+        {"small-metallic-asteroid", 2, -52, 0.0, 0.04},
+        {"big-carbonic-asteroid", -8, -60, 0.01, 0.035},
+        {"huge-metallic-asteroid", 3, -62, -0.002, 0.025},
+        {"small-oxide-asteroid", -2, -53, 0.002, 0.04},
+        {"medium-oxide-asteroid", -5, -57, 0.005, 0.035},
+        {"big-metallic-asteroid", 8, -60, -0.008, 0.035},
       }
       local idx = 0
       local function step()
         stock_craft()
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
-          if a.position.y > -22 or a.position.y < -110 or math.abs(a.position.x) > 40 then a.destroy() end
+          if a.position.y > -15 or a.position.y < -75 or math.abs(a.position.x) > 35 then a.destroy() end
         end
         idx = (idx % #wave) + 1
         local w = wave[idx]
@@ -767,8 +767,8 @@ do
 
       player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -32}
-      game.simulation.camera_zoom = 0.42
+      game.simulation.camera_position = {0, -26}
+      game.simulation.camera_zoom = 0.54
       game.simulation.camera_alt_info = true
       game.simulation.hide_cursor = true
 
@@ -840,12 +840,12 @@ do
 
       local configured = false
       local wave = {
-        {"huge-promethium-asteroid", -8, -80, 0.005, 0.035},
-        {"small-metallic-asteroid", 2, -72, 0.0, 0.04},
-        {"huge-metallic-asteroid", 10, -85, -0.005, 0.035},
-        {"big-promethium-asteroid", 0, -78, 0.0, 0.04},
-        {"small-oxide-asteroid", -4, -75, 0.002, 0.04},
-        {"huge-oxide-asteroid", -12, -82, 0.008, 0.035},
+        {"huge-promethium-asteroid", -6, -62, 0.005, 0.025},
+        {"small-metallic-asteroid", 2, -52, 0.0, 0.04},
+        {"huge-metallic-asteroid", 7, -62, -0.005, 0.025},
+        {"big-promethium-asteroid", 0, -58, 0.0, 0.03},
+        {"small-oxide-asteroid", -3, -53, 0.002, 0.04},
+        {"huge-oxide-asteroid", -8, -62, 0.008, 0.025},
       }
       local idx = 0
       local function step()
@@ -857,7 +857,7 @@ do
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = false, medium = true, big = true, huge = true},
-              dir = 0, arc = 120, near = 30, far = 100,
+              dir = 0, arc = 120, near = 30, far = 56,
             })
           end
         end
@@ -878,7 +878,7 @@ do
           if t and t.valid then t.insert{name = "awe-art-promethium-artillery-shell", count = 5} end
         end
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
-          if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
+          if a.position.y > -15 or a.position.y < -75 or math.abs(a.position.x) > 35 then a.destroy() end
         end
         idx = (idx % #wave) + 1
         local w = wave[idx]

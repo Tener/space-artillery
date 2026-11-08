@@ -79,6 +79,7 @@ function M.init()
 end
 
 function M.add(entity, tags)
+  M.init()
   local raw = (tags and tags.awe_art_cfg) or (entity.name == "entity-ghost" and entity.tags and entity.tags.awe_art_cfg)
   local c = {entity = entity, cfg = complete(raw and deepcopy(raw) or default_cfg())}
   storage.computers[entity.unit_number] = c
@@ -94,6 +95,7 @@ function M.add(entity, tags)
 end
 
 function M.set_cfg(unit_number, cfg)
+  M.init()
   local c = storage.computers[unit_number]
   if c then
     c.cfg = complete(cfg)

@@ -47,6 +47,12 @@ local function build_ship()
   for _, loc in pairs{"fulgora", "aquilo", "solar-system-edge"} do force.unlock_space_location(loc) end
   force.set_ammo_damage_modifier("artillery-shell", 5) -- +500%: about 2 shells per huge asteroid
   force.set_gun_speed_modifier("artillery-shell", 2)
+  for _, t in pairs{"awe-art-targeting-computer", "awe-art-asteroid-ballistics", "awe-art-promethium-ballistics"} do
+    if force.technologies[t] then force.technologies[t].researched = true end
+  end
+  for _, r in pairs{"awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell", "awe-art-promethium-artillery-shell"} do
+    if force.recipes[r] then force.recipes[r].enabled = true end
+  end
   remote.call("awesome-artillery", "reset_damage")
   remote.call("awesome-artillery", "set_min_size", "small")
 
@@ -88,7 +94,12 @@ local function build_ship()
   for y = TIP + 10, TAIL, 14 do
     for x = -42, 42, 14 do if fits(x, y, 1) then make("substation", x, y) end end
   end
-  local shell = {defines.inventory.artillery_turret_ammo, "artillery-shell", 10}
+  local shell_types = {
+    "artillery-shell",
+    "awe-art-steel-artillery-shell",
+    "awe-art-promethium-artillery-shell",
+  }
+  local s_idx = 0
   local mag = {defines.inventory.turret_ammo, "piercing-rounds-magazine", 20}
   -- edges of the arrowhead: lasers outside, guns just inside
   for y = TIP + 6, HEAD_END + 10, 2 do
@@ -101,11 +112,21 @@ local function build_ship()
   -- artillery fills the arrowhead and the front of the shaft
   for y = TIP + 14, HEAD_END + 8, 5 do
     for x = -40, 40, 5 do
-      if fits(x, y, 2) then make("artillery-turret", x, y, shell) end
+      if fits(x, y, 2) then
+        s_idx = s_idx + 1
+        local sh = shell_types[(s_idx % #shell_types) + 1]
+        make("artillery-turret", x, y, {defines.inventory.artillery_turret_ammo, sh, 10})
+      end
     end
   end
   -- computer: everything, all around
-  make("awe-art-targeting-computer", 0, 12)
+  local comp = make("awe-art-targeting-computer", 0, 12)
+  if comp and comp.valid then
+    remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
+      sizes = {small = true, medium = true, big = true, huge = true},
+      dir = 0, arc = 180, near = 30, far = 120,
+    })
+  end
   local counts = {}
   for _, e in pairs(s.find_entities_filtered{force = force}) do
     e.destructible = false
@@ -195,11 +216,42 @@ script.on_event(defines.events.on_tick, function(e)
     pf.speed = SPEED
     if pf.distance > 0.8 then pf.distance = 0.2 end
   end
+
+  -- Automatic visual capture (runs in client rendering mode without test_arg)
+  local CAPTURE_START = 360
+  local CAPTURE_END = 540
+  local CAPTURE_INTERVAL = 3 -- every 3 ticks: 61 frames at 20 fps (3.0 seconds)
+  if not script.test_arg then
+    if e.tick == CAPTURE_START then
+      local s = pf.surface
+      game.take_screenshot{surface = s, position = {0, -50}, resolution = {1920, 1080}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-16x9.png"}
+      game.take_screenshot{surface = s, position = {0, -50}, resolution = {2048, 2048}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-square.png"}
+      game.take_screenshot{surface = s, position = {0, -50}, resolution = {512, 512}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-thumb-512.png"}
+      game.take_screenshot{surface = s, position = {0, -50}, resolution = {144, 144}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-thumb-144.png"}
+      print("[SHOWCASE] still screenshots written at tick " .. e.tick)
+    end
+    if e.tick >= CAPTURE_START and e.tick <= CAPTURE_END and (e.tick - CAPTURE_START) % CAPTURE_INTERVAL == 0 then
+      local f_idx = math.floor((e.tick - CAPTURE_START) / CAPTURE_INTERVAL) + 1
+      local s = pf.surface
+      game.take_screenshot{surface = s, position = {0, -50}, resolution = {960, 540}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = string.format("showcase-frame-%04d.png", f_idx)}
+      if e.tick == CAPTURE_END then
+        print(string.format("[SHOWCASE] CAPTURE_COMPLETE frames=%d", f_idx))
+      end
+    end
+  end
+
   if storage.save_at then
     if e.tick == storage.save_at then
-      print("[SHOWCASE] saving _autosave-showcase at tick " .. e.tick)
-      game.auto_save("showcase")
-      if script.test_arg then return script.finish_test(true) end
+      print("[SHOWCASE] saving showcase at tick " .. e.tick)
+      pcall(function() game.server_save("showcase") end)
+      pcall(function() game.auto_save("showcase") end)
+    elseif e.tick == storage.save_at + 10 and script.test_arg then
+      return script.finish_test(true)
     elseif e.tick == storage.save_at + 1 then
       local s = pf.surface
       game.take_screenshot{surface = s, position = {0, -55}, resolution = {1920, 1080}, zoom = 0.45,
