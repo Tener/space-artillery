@@ -4,11 +4,25 @@
 local computer = require("scripts.computer")
 
 local SIZE_RANK = {chunk = 0, small = 1, medium = 2, big = 3, huge = 4}
--- Vanilla artillery shell damage (projectile prototypes aren't readable at runtime).
-local SHELL_DAMAGE = {physical = 1000, explosion = 1000}
+-- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
+local SHELLS = {
+  ["artillery-shell"] = {physical = 1000, explosion = 1000},
+  ["aa-steel-artillery-shell"] = {physical = 200, explosion = 800},
+  ["aa-promethium-artillery-shell"] = {physical = 4000, explosion = 1000},
+}
 local BLAST_RADIUS = 4
 local FOUNDATION = "space-platform-foundation"
-local BUILD_FILTER = {{filter = "type", type = "artillery-turret"}, {filter = "name", name = computer.NAME, mode = "or"}}
+local BUILD_FILTER = {
+  {filter = "type", type = "artillery-turret"},
+  {filter = "name", name = computer.NAME, mode = "or"},
+  {filter = "ghost_name", name = computer.NAME, mode = "or"},
+}
+local ASTEROID_FILTER = {{filter = "type", type = "asteroid"}}
+local BALLISTICS_TECH = "aa-asteroid-ballistics"
+local PROMETHIUM_BALLISTICS_TECH = "aa-promethium-ballistics"
+local BALLISTICS_KILLS = 500
+local BALLISTICS_CHUNKS = {"metallic-asteroid-chunk", "carbonic-asteroid-chunk", "oxide-asteroid-chunk"}
+local MAX_ROTATION_LEVEL = 10
 
 local function constants()
   if not storage.const then
@@ -27,14 +41,57 @@ local function init_storage()
   storage.tracked = storage.tracked or {}   -- registration number -> {a, d, surface, slot, seen, ...}
   storage.ctx = storage.ctx or {}           -- surface index -> ctx from the surface's last scan
   storage.interval = nil                    -- forces a bucket rebuild on the next tick
-  storage.damage = {}                       -- force index -> asteroid name -> damage per shell
+  storage.damage = {}                       -- force|shell -> asteroid name -> damage per shell
+  storage.kills = storage.kills or {}       -- force index -> chunk name -> medium+ artillery kills
+  storage.promethium_killed = storage.promethium_killed or {} -- force index -> bool
   storage.debug = storage.debug or false
   storage.const = nil
   computer.init()
 end
 
+local function rotation_turret_name(force)
+  for level = MAX_ROTATION_LEVEL, 1, -1 do
+    local tech = force.technologies["aa-artillery-rotation-" .. level]
+    if tech and tech.researched then return "aa-artillery-turret-r" .. level end
+  end
+  return "artillery-turret"
+end
+
+local function shell_velocity_mult(force)
+  local tech = force and force.technologies["aa-artillery-shell-velocity-1"]
+  if not tech then return 1 end
+  local levels = (tech.level or 1) - 1
+  if tech.researched then levels = levels + 1 end
+  return 1 + 0.2 * math.max(0, levels)
+end
+
+local function sync_turret_rotation(t)
+  if not (t and t.valid and t.type == "artillery-turret") then return t end
+  local want = rotation_turret_name(t.force)
+  if t.name == want or not prototypes.entity[want] then return t end
+  local s, u = t.surface, t.unit_number
+  local list = storage.turrets and storage.turrets[s.index]
+  if list and u then list[u] = nil end
+  local dir, pos, force, qual, hp, kills, dmg, orient =
+    t.direction, t.position, t.force, t.quality, t.health, t.kills, t.damage_dealt, t.relative_turret_orientation
+  local replaced = s.create_entity{
+    name = want, position = pos, direction = dir, force = force, quality = qual,
+    fast_replace = true, spill = false, create_build_effect_smoke = false,
+  }
+  if replaced and replaced.valid then
+    replaced.health = hp
+    replaced.kills = kills
+    replaced.damage_dealt = dmg
+    replaced.relative_turret_orientation = orient
+    return replaced
+  end
+  return t
+end
+
 local function add_turret(t)
-  if not (t and t.valid and t.type == "artillery-turret" and t.surface.platform) then return end
+  if not (t and t.valid and t.type == "artillery-turret") then return end
+  t = sync_turret_rotation(t)
+  if not (t and t.valid and t.surface.platform) then return end
   local list = storage.turrets[t.surface.index] or {}
   list[t.unit_number] = t
   storage.turrets[t.surface.index] = list
@@ -43,9 +100,7 @@ end
 local function rescan()
   storage.turrets = {}
   for _, s in pairs(game.surfaces) do
-    if s.platform then
-      for _, t in pairs(s.find_entities_filtered{type = "artillery-turret"}) do add_turret(t) end
-    end
+    for _, t in pairs(s.find_entities_filtered{type = "artillery-turret"}) do add_turret(t) end
   end
 end
 
@@ -55,14 +110,15 @@ local function size_of(name)
   return info and info.size or 0
 end
 
-local function shell_damage(force, name)
-  local per_force = storage.damage[force.index] or {}
-  storage.damage[force.index] = per_force
+local function shell_damage(force, shell, name)
+  local key = force.index .. "|" .. shell
+  local per_force = storage.damage[key] or {}
+  storage.damage[key] = per_force
   if per_force[name] then return per_force[name] end
   local resist = prototypes.entity[name].resistances or {}
   local mult = 1 + force.get_ammo_damage_modifier("artillery-shell")
   local total = 0
-  for type, amount in pairs(SHELL_DAMAGE) do
+  for type, amount in pairs(SHELLS[shell] or SHELLS["artillery-shell"]) do
     local r = resist[type] or {decrease = 0, percent = 0}
     local d = amount * mult - r.decrease
     if d > 0 then total = total + d * (1 - r.percent) end
@@ -75,7 +131,7 @@ end
 -- Every asteroid in the catalogue has a decoy prototype (both come from max_health asteroids).
 local function eligible(name, health, force, ctx)
   if size_of(name) < ctx.min_rank then return false end
-  local dmg = shell_damage(force, name)
+  local dmg = shell_damage(force, ctx.shell, name)
   return dmg > 0 and health / dmg <= ctx.max_shells
 end
 
@@ -223,15 +279,24 @@ local function scan_surface(s, turrets, interval)
     blast = BLAST_RADIUS + g["aa-safety-margin"].value, hull = hull_boxes(s)}
   storage.ctx[s.index] = ctx
   local cx, cy = 0, 0
+  local has_promethium, has_tungsten, has_steel = false, false, false
   for i, t in pairs(turrets) do
     local p = t.position
     ctx.turrets[i] = {p.x, p.y}
     cx, cy = cx + p.x, cy + p.y
+    local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
+    if inv then
+      if inv.get_item_count("aa-promethium-artillery-shell") > 0 then has_promethium = true end
+      if inv.get_item_count("artillery-shell") > 0 then has_tungsten = true end
+      if inv.get_item_count("aa-steel-artillery-shell") > 0 then has_steel = true end
+    end
   end
+  ctx.shell = has_promethium and "aa-promethium-artillery-shell"
+    or ((has_tungsten or not has_steel) and "artillery-shell" or "aa-steel-artillery-shell")
   cx, cy = cx / #turrets, cy / #turrets
   local spread = 0
   for _, t in pairs(ctx.turrets) do spread = math.max(spread, dist(cx, cy, t[1], t[2])) end
-  ctx.cx, ctx.cy, ctx.shell_speed, ctx.half_interval = cx, cy, c.shell_speed, interval / 2
+  ctx.cx, ctx.cy, ctx.shell_speed, ctx.half_interval = cx, cy, c.shell_speed * shell_velocity_mult(force), interval / 2
   -- some turret can reach a point whose distance from the centre is within this band
   ctx.reach_min, ctx.reach_max = math.max(0, c.min_range - spread), range + spread
   -- targeting computers: nil rules = no restriction (only when computers aren't required and none are built)
@@ -327,7 +392,7 @@ script.on_event(defines.events.on_object_destroyed, function(e) untrack(e.regist
 local function on_built(e)
   local ent = e.entity or e.destination
   if not (ent and ent.valid) then return end
-  if ent.name == computer.NAME then computer.add(ent, e.tags) else add_turret(ent) end
+  if computer.is_computer(ent) then computer.add(ent, e.tags) else add_turret(ent) end
 end
 for _, ev in pairs{defines.events.on_built_entity, defines.events.on_robot_built_entity,
   defines.events.on_space_platform_built_entity, defines.events.script_raised_built, defines.events.script_raised_revive} do
@@ -340,9 +405,58 @@ for _, ev in pairs{defines.events.on_space_platform_built_tile, defines.events.o
   script.on_event(ev, invalidate_hull)
 end
 
-local function reset_damage() storage.damage = {} end
-script.on_event(defines.events.on_research_finished, reset_damage)
-script.on_event(defines.events.on_research_reversed, reset_damage)
+local function check_ballistics_tech(force)
+  local tech = force.technologies[BALLISTICS_TECH]
+  if tech and not tech.researched then
+    local ok = true
+    for _, p in pairs(tech.prerequisites) do if not p.researched then ok = false; break end end
+    local k = storage.kills[force.index]
+    if ok and k then
+      for _, chunk in pairs(BALLISTICS_CHUNKS) do
+        if (k[chunk] or 0) < BALLISTICS_KILLS then ok = false; break end
+      end
+      if ok then force.script_trigger_research(BALLISTICS_TECH) end
+    end
+  end
+  local ptech = force.technologies[PROMETHIUM_BALLISTICS_TECH]
+  if ptech and not ptech.researched and storage.promethium_killed[force.index] then
+    local ok = true
+    for _, p in pairs(ptech.prerequisites) do if not p.researched then ok = false; break end end
+    if ok then force.script_trigger_research(PROMETHIUM_BALLISTICS_TECH) end
+  end
+end
+
+script.on_event(defines.events.on_entity_died, function(e)
+  local info = computer.catalogue()[e.entity.name]
+  if not (info and info.chunk) then return end
+  local cause = e.cause
+  local force = (cause and cause.valid and cause.force) or e.force
+  if info.chunk == "promethium-asteroid-chunk" and force then
+    storage.promethium_killed[force.index] = true
+    check_ballistics_tech(force)
+  end
+  if not (cause and cause.valid and cause.type == "artillery-turret" and info.size >= 2) then return end
+  local k = storage.kills[force.index] or {}
+  storage.kills[force.index] = k
+  k[info.chunk] = (k[info.chunk] or 0) + 1
+  check_ballistics_tech(force)
+end, ASTEROID_FILTER)
+
+script.on_event(defines.events.on_trigger_fired_artillery, function(e)
+  local proj = e.entity
+  if not (proj and proj.valid) then return end
+  local force = (e.source and e.source.valid and e.source.force) or proj.force
+  local mult = shell_velocity_mult(force)
+  if mult ~= 1 then proj.speed = proj.speed * mult end
+end)
+
+local function on_research_changed(e)
+  storage.damage = {}
+  rescan()
+  if e.research and e.research.force then check_ballistics_tech(e.research.force) end
+end
+script.on_event(defines.events.on_research_finished, on_research_changed)
+script.on_event(defines.events.on_research_reversed, on_research_changed)
 
 script.on_init(function() init_storage(); rescan(); computer.rescan() end)
 script.on_configuration_changed(function() init_storage(); rescan(); computer.rescan() end)
@@ -376,7 +490,7 @@ remote.add_interface("awesome-artillery", {
     end
     return out
   end,
-  reset_damage = reset_damage,
+  reset_damage = function() storage.damage = {} end,
   set_debug = function(on) storage.debug = on and true or false end,
   profile_start = function()
     P = {total = helpers.create_profiler(true), ticks = 0, asteroids = 0, asteroids_max = 0, found_max = 0}
@@ -398,8 +512,7 @@ remote.add_interface("awesome-artillery", {
     return c and c.cfg
   end,
   set_computer_cfg = function(unit_number, cfg)
-    local c = storage.computers[unit_number]
-    if c then c.cfg = computer.complete(cfg) end
+    computer.set_cfg(unit_number, cfg)
   end,
   -- only the owning mod may change its runtime-global settings
   set_min_size = function(size) settings.global["aa-min-size"] = {value = size} end,

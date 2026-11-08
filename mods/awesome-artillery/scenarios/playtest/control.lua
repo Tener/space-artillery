@@ -33,9 +33,10 @@ local function build_ship()
     return e
   end
   storage.artillery = {}
+  local shell = storage.shell or "artillery-shell"
   for _, pos in pairs{{-12, -22}, {0, -24}, {12, -22}, {0, -14}} do
     storage.artillery[#storage.artillery + 1] = make("artillery-turret", pos, function(e)
-      e.insert{name = "artillery-shell", count = 15}
+      e.insert{name = shell, count = 15}
     end)
   end
   if storage.case ~= "tc-unpowered" then
@@ -102,7 +103,7 @@ script.on_event(defines.events.on_entity_died, function(e)
   local st = storage.stats
   if ent.type == "asteroid" then
     local size = ent.name:match("^(%a+)%-") or "?"
-    local cause = e.cause and e.cause.name or "collision"
+    local cause = e.cause and (e.cause.type == "artillery-turret" and "artillery-turret" or e.cause.name) or "collision"
     st.kills[size] = st.kills[size] or {}
     st.kills[size][cause] = (st.kills[size][cause] or 0) + 1
   elseif ent.force.name == "player" then
@@ -383,6 +384,10 @@ local function check_case()
     for _, d in pairs(decoys) do
       if not d.name:find("metallic") then return "decoy for " .. d.name .. " despite metallic-only type slot" end
     end
+  elseif case == "steel-shell" then
+    for _, d in pairs(decoys) do
+      if d.name:find("^huge") then return "steel shell created decoy for " .. d.name .. " at +300% damage" end
+    end
   end
 end
 
@@ -400,6 +405,11 @@ local function check_end()
   end
   if case == "tc-ignore" and not seen("small") then return "no small decoys: an unticked input was read" end
   if case == "tc-chunk" and not seen("medium%-metallic") then return "no metallic decoys at all" end
+  if case == "steel-shell" then
+    if seen("huge") then return "huge asteroid got a decoy with steel shells" end
+    local big_kills = (storage.stats.kills.big or {})["artillery-turret"] or 0
+    if not seen("big") or big_kills < 1 then return "expected big asteroid decoy and kill with steel shells" end
+  end
 end
 
 -- lifecycle -----------------------------------------------------------------------------
@@ -423,7 +433,22 @@ script.on_init(function()
     storage.case = arg:match("^(%S+)")
     storage.test_until = tonumber(arg:match("%s(%d+)")) or 3600
   end
+  storage.shell = storage.case == "steel-shell" and "aa-steel-artillery-shell" or "artillery-shell"
+  if storage.case ~= "tech" then
+    local f = game.forces.player
+    if f.technologies["aa-artillery-rotation-4"] then f.technologies["aa-artillery-rotation-4"].researched = true end
+    if f.technologies["aa-artillery-shell-velocity-1"] then f.technologies["aa-artillery-shell-velocity-1"].level = 5 end
+    storage.levels.rate = 1
+    apply_research()
+  end
   build_ship()
+  if storage.case == "steel-shell" then
+    storage.levels.damage = 30 -- +300%: tungsten targets huge asteroids here, steel shells must not
+    apply_research()
+    local s = storage.platform.surface
+    s.create_entity{name = "big-metallic-asteroid", position = {-30, -100}, force = "enemy"}
+    s.create_entity{name = "huge-metallic-asteroid", position = {30, -100}, force = "enemy"}
+  end
   if arg then say("update interval %d ticks", settings.global["aa-update-interval"].value) end
   if arg and storage.case:find("^perf") then
     storage.forced_speed = tonumber(storage.case:match("%-s(%d+)")) or 10
@@ -481,13 +506,14 @@ script.on_event(defines.events.on_tick, function(e)
       end
     end
     if storage.refill then
+      local shell = storage.shell or "artillery-shell"
       for _, t in pairs(storage.artillery) do
         if t and t.valid then
           local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
-          local n = inv.get_item_count("artillery-shell")
+          local n = inv.get_item_count(shell)
           if n < 15 then
             storage.stats.shells = storage.stats.shells + 15 - n
-            inv.insert{name = "artillery-shell", count = 15 - n}
+            inv.insert{name = shell, count = 15 - n}
           end
         end
       end
@@ -572,13 +598,18 @@ script.on_event(defines.events.on_tick, function(e)
     end
     return
   end
-  -- blueprint: a computer built from a ghost with the settings tag gets those settings
-  -- (the blueprint setup side needs a player selection; check that in a real game)
+  -- blueprint: a computer built from a ghost with the settings tag gets those settings,
+  -- and a ghost can be opened/configured and wired directly before being built
   if storage.test_until and storage.case == "tc-blueprint" then
     if e.tick == 5 then
       local src = remote.call("awesome-artillery", "computer_cfg", storage.computer.unit_number)
       local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "aa-targeting-computer",
-        position = {-6.5, -18.5}, force = "player", tags = {aa_cfg = src}}
+        position = {-6.5, -18.5}, force = "player", raise_built = true}
+      for _, p in pairs(game.players) do
+        p.opened = ghost
+        say("opened ghost -> gui=%s", tostring(p.gui.screen.aa_tc ~= nil))
+      end
+      remote.call("awesome-artillery", "set_computer_cfg", ghost.unit_number, src)
       local _, built = ghost.revive{raise_revive = true}
       local got = built and remote.call("awesome-artillery", "computer_cfg", built.unit_number)
       local a, b = serpent.line(src, {sortkeys = true}), serpent.line(got, {sortkeys = true})
@@ -588,20 +619,74 @@ script.on_event(defines.events.on_tick, function(e)
     end
     return
   end
-  -- tech: the computer is researched, not available from the start, and needs rare+ chips
+  -- tech: the computer and steel shell technologies, prerequisites, and asteroid-kill trigger
   if storage.test_until and storage.case == "tech" then
-    local tech, recipe = prototypes.technology["aa-targeting-computer"], prototypes.recipe["aa-targeting-computer"]
+    local tech = prototypes.technology["aa-targeting-computer"]
+    local shell_tech = prototypes.technology["aa-steel-artillery-shell"]
+    local recipe = prototypes.recipe["aa-targeting-computer"]
+    local fhs = prototypes.recipe["aa-flash-hardened-steel"]
+    local shell = prototypes.recipe["aa-steel-artillery-shell"]
     local prereqs = {}
     for name in pairs(tech.prerequisites) do prereqs[#prereqs + 1] = name end
     table.sort(prereqs)
     say("tech prerequisites: %s; cost %d", table.concat(prereqs, ", "), tech.research_unit_count)
     for _, i in pairs(recipe.ingredients) do
-      say("ingredient %s x%d quality_min=%s", i.name, i.amount, tostring(i.quality_min))
+      say("computer ingredient %s x%d quality_min=%s", i.name, i.amount, tostring(i.quality_min))
     end
-    local enabled = game.forces.player.recipes["aa-targeting-computer"].enabled
-    say("recipe enabled at start: %s", tostring(enabled))
-    return script.finish_test(not enabled and tech.prerequisites["electromagnetic-science-pack"] ~= nil
-      and tech.prerequisites["metallurgic-science-pack"] ~= nil)
+    for _, i in pairs(fhs.ingredients) do say("fhs ingredient %s x%d", i.name, i.amount) end
+    for _, i in pairs(shell.ingredients) do say("shell ingredient %s x%d", i.name, i.amount) end
+    local f = game.forces.player
+    local r = f.recipes
+    local enabled = r["aa-targeting-computer"].enabled or r["aa-flash-hardened-steel"].enabled
+      or r["aa-steel-artillery-shell"].enabled
+    say("any recipe enabled at start: %s; fhs allow_productivity=%s", tostring(enabled), tostring(fhs.allowed_effects and fhs.allowed_effects.productivity))
+
+    -- Verify the scripted research trigger: research prerequisites, then kill 500 of each medium asteroid with artillery
+    f.technologies["aa-targeting-computer"].researched = true
+    f.technologies["advanced-asteroid-processing"].researched = true
+    local s, turret = pf.surface, storage.artillery[1]
+    for _, kind in pairs{"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"} do
+      for i = 1, 500 do
+        if i == 500 and kind == "medium-oxide-asteroid" then
+          say("before final kill: ballistics=%s", tostring(f.technologies["aa-asteroid-ballistics"].researched))
+        end
+        local a = s.create_entity{name = kind, position = {0, -80}, force = "enemy"}
+        a.die(f, turret)
+      end
+    end
+    local ballistics_done = f.technologies["aa-asteroid-ballistics"].researched
+    local shell_auto = f.technologies["aa-steel-artillery-shell"].researched
+    say("after 500x3 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
+
+    -- Verify promethium ballistics trigger: research aa-steel-artillery-shell, then crack 1 promethium asteroid
+    f.technologies["aa-steel-artillery-shell"].researched = true
+    local pa = s.create_entity{name = "big-promethium-asteroid", position = {0, -80}, force = "enemy"}
+    pa.die(f, turret)
+    local prom_ballistics_done = f.technologies["aa-promethium-ballistics"].researched
+    local prom_shell_auto = f.technologies["aa-promethium-artillery-shell"].researched
+    local prom_tech = prototypes.technology["aa-promethium-artillery-shell"]
+    say("after 1 promethium kill: prom_ballistics=%s prom_shell_auto=%s cost=%d",
+      tostring(prom_ballistics_done), tostring(prom_shell_auto), prom_tech and prom_tech.research_unit_count or 0)
+
+    -- Verify turning speed research upgrades turrets and preserves shells
+    local base_rot = prototypes.entity["artillery-turret"].turret_rotation_speed
+    f.technologies["aa-artillery-rotation-1"].researched = true
+    local upgraded = s.find_entities_filtered{type = "artillery-turret"}[1]
+    local new_rot = upgraded and upgraded.prototype.turret_rotation_speed or 0
+    local ammo = upgraded and upgraded.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell") or 0
+    say("rotation upgrade: %s rot %.5f -> %.5f ammo=%d", upgraded and upgraded.name or "nil", base_rot, new_rot, ammo)
+
+    local rot_tech = prototypes.technology["aa-artillery-rotation-1"]
+    local vel_tech = prototypes.technology["aa-artillery-shell-velocity-1"]
+    say("rot_tech cost=%d vel_tech formula=%s", rot_tech.research_unit_count, tostring(vel_tech and vel_tech.research_unit_count_formula))
+    return script.finish_test(not enabled and fhs ~= nil and shell ~= nil and shell_tech ~= nil
+      and shell_tech.prerequisites["aa-asteroid-ballistics"] ~= nil
+      and tech.prerequisites["electromagnetic-science-pack"] ~= nil
+      and tech.prerequisites["metallurgic-science-pack"] ~= nil
+      and ballistics_done and not shell_auto
+      and prom_ballistics_done and not prom_shell_auto and prom_tech.research_unit_count == 4000
+      and rot_tech.research_unit_count == 2000 and vel_tech ~= nil
+      and math.abs(base_rot - 0.001) < 1e-6 and math.abs(new_rot - 0.0013) < 1e-6 and ammo == 15)
   end
   if storage.test_until and storage.case:find("^perf") then
     if e.tick == 600 then

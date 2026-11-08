@@ -1,10 +1,4 @@
 data:extend{
-  {type = "double-setting", name = "aa-rotation-multiplier", setting_type = "startup",
-    default_value = 5, minimum_value = 1, maximum_value = 50, order = "a"},
-  {type = "double-setting", name = "aa-shell-speed-multiplier", setting_type = "startup",
-    default_value = 3, minimum_value = 1, maximum_value = 20, order = "b"},
-  {type = "double-setting", name = "aa-fire-rate-multiplier", setting_type = "startup",
-    default_value = 2, minimum_value = 0.1, maximum_value = 20, order = "c"},
   {type = "int-setting", name = "aa-update-interval", setting_type = "runtime-global",
     default_value = 30, minimum_value = 1, maximum_value = 300, order = "a"},
   {type = "string-setting", name = "aa-min-size", setting_type = "runtime-global",

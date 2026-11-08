@@ -54,6 +54,18 @@ local function complete(cfg)
 end
 M.complete = complete
 
+function M.is_computer(e)
+  return e and e.valid and (e.name == M.NAME or (e.name == "entity-ghost" and e.ghost_name == M.NAME))
+end
+
+local function save_tags(c)
+  if c and c.entity and c.entity.valid and c.entity.name == "entity-ghost" then
+    local t = c.entity.tags or {}
+    t.aa_cfg = deepcopy(c.cfg)
+    c.entity.tags = t
+  end
+end
+
 function M.init()
   storage.computers = storage.computers or {} -- unit_number -> {entity, cfg}
   storage.open_computer = storage.open_computer or {} -- player index -> unit_number
@@ -61,14 +73,33 @@ function M.init()
 end
 
 function M.add(entity, tags)
-  local cfg = tags and tags.aa_cfg and deepcopy(tags.aa_cfg) or default_cfg()
-  storage.computers[entity.unit_number] = {entity = entity, cfg = complete(cfg)}
+  local raw = (tags and tags.aa_cfg) or (entity.name == "entity-ghost" and entity.tags and entity.tags.aa_cfg)
+  local c = {entity = entity, cfg = complete(raw and deepcopy(raw) or default_cfg())}
+  storage.computers[entity.unit_number] = c
+  save_tags(c)
+  if entity.name == M.NAME then
+    for p_idx, open_id in pairs(storage.open_computer or {}) do
+      local old = storage.computers[open_id]
+      if not (old and old.entity.valid) then
+        storage.open_computer[p_idx] = entity.unit_number
+      end
+    end
+  end
+end
+
+function M.set_cfg(unit_number, cfg)
+  local c = storage.computers[unit_number]
+  if c then
+    c.cfg = complete(cfg)
+    save_tags(c)
+  end
 end
 
 function M.rescan()
   storage.computers = {}
   for _, s in pairs(game.surfaces) do
     for _, e in pairs(s.find_entities_filtered{name = M.NAME}) do M.add(e) end
+    for _, e in pairs(s.find_entities_filtered{ghost_name = M.NAME}) do M.add(e) end
   end
 end
 
@@ -95,9 +126,12 @@ local function chunk_set(list)
 end
 
 -- The rule a computer applies right now, with circuit inputs; nil if off or unpowered.
-local function effective(c)
+-- When preview is true (GUI / zone preview for an open ghost), ghosts return their planned rule.
+local function effective(c, preview)
   local e, cfg = c.entity, c.cfg
-  if e.status == defines.entity_status.no_power or e.energy <= 0 then return nil end
+  local ghost = e.name == "entity-ghost"
+  if ghost and not preview then return nil end
+  if not ghost and (e.status == defines.entity_status.no_power or e.energy <= 0) then return nil end
   local sig = read_signals(e)
   local function get(key)
     local id = cfg.use[key] and cfg.signals[key]
@@ -106,7 +140,7 @@ local function effective(c)
   if (get("off") or 0) > 0 then return nil end
   local limit = max_distance(e.force)
   local r = {x = e.position.x, y = e.position.y, dir = cfg.dir, arc = cfg.arc, near = cfg.near,
-    far = math.min(cfg.far, limit), sizes = cfg.sizes, chunks = chunk_set(cfg.chunks), inputs = {}}
+    far = math.min(cfg.far, limit), sizes = cfg.sizes, chunks = chunk_set(cfg.chunks), inputs = {}, ghost = ghost}
   for _, s in pairs(SLIDERS) do
     local v = get(s.key)
     if v then r.inputs[#r.inputs + 1] = s.caption:lower() end
@@ -132,13 +166,13 @@ local function effective(c)
   return r
 end
 
--- Working rules on a surface, and whether any computer (working or not) is there.
+-- Working rules on a surface, and whether any built computer (working or not) is there.
 function M.rules(surface_index)
   local rules, present = {}, false
   for k, c in pairs(storage.computers) do
     if not c.entity.valid then
       storage.computers[k] = nil
-    elseif c.entity.surface.index == surface_index then
+    elseif c.entity.surface.index == surface_index and c.entity.name == M.NAME then
       present = true
       local r = effective(c)
       if r then rules[#rules + 1] = r end
@@ -208,7 +242,8 @@ local function describe(r)
   else
     types[1] = "all types"
   end
-  local text = string.format("Now: %s; %s; %d° ±%d°; %d-%d tiles", table.concat(sizes, ", "),
+  local prefix = r.ghost and "[color=0.7,0.85,1]Ghost (applies once built):[/color] " or "Now: "
+  local text = string.format("%s%s; %s; %d° ±%d°; %d-%d tiles", prefix, table.concat(sizes, ", "),
     table.concat(types, ""), r.dir, r.arc / 2, r.near, r.far)
   if #r.inputs > 0 then text = text .. "\n[color=0.6,0.9,0.6]From circuit: " .. table.concat(r.inputs, ", ") .. "[/color]" end
   return text
@@ -234,7 +269,6 @@ function M.open(p, entity)
   local limit = max_distance(entity.force)
   local f = p.gui.screen.add{type = "frame", name = "aa_tc", caption = "Targeting computer", direction = "vertical"}
   f.auto_center = true
-  storage.open_computer[p.index] = entity.unit_number
   local inner = f.add{type = "frame", name = "inner", style = "inside_shallow_frame_with_padding", direction = "vertical"}
 
   local sizes = inner.add{type = "flow", direction = "horizontal"}
@@ -269,10 +303,12 @@ function M.open(p, entity)
     "Any asteroid chunk signal > 0 on the wire replaces the type slots above")
 
   inner.add{type = "line"}
-  local now = inner.add{type = "label", name = "aa_tc_now", caption = describe(effective(c))}
+  local now = inner.add{type = "label", name = "aa_tc_now", caption = describe(effective(c, true))}
   now.style.single_line = false
   now.style.maximal_width = 480
   p.opened = f
+  storage.open_computer[p.index] = entity.unit_number
+  M.sync_zones()
 end
 
 local function open_entry(p)
@@ -292,7 +328,7 @@ function M.sync_zones()
   storage.zones = storage.zones or {} -- key -> {objs, sig}
   local want = {}
   local function wish(c, player)
-    local r = effective(c)
+    local r = effective(c, player ~= nil)
     if not r then return end
     local key = c.entity.unit_number .. "|" .. (player and player.index or "all")
     want[key] = {c = c, r = r, player = player, sig = zone_sig(r)}
@@ -324,13 +360,13 @@ function M.refresh_open()
   for _, p in pairs(game.connected_players) do
     local c = open_entry(p)
     local f = p.gui.screen.aa_tc
-    if c and f then f.inner.aa_tc_now.caption = describe(effective(c)) end
+    if c and f then f.inner.aa_tc_now.caption = describe(effective(c, true)) end
   end
   M.sync_zones()
 end
 
 script.on_event(defines.events.on_gui_opened, function(e)
-  if e.entity and e.entity.valid and e.entity.name == M.NAME then M.open(game.get_player(e.player_index), e.entity) end
+  if M.is_computer(e.entity) then M.open(game.get_player(e.player_index), e.entity) end
 end)
 
 script.on_event(defines.events.on_gui_closed, function(e)
@@ -350,6 +386,7 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(e)
   local use = name:match("^aa_tc_use_(%a+)$")
   if size then c.cfg.sizes[size] = e.element.state end
   if use then c.cfg.use[use] = e.element.state end
+  save_tags(c)
   M.refresh_open()
 end)
 
@@ -363,6 +400,7 @@ script.on_event(defines.events.on_gui_value_changed, function(e)
       e.element.parent["aa_tc_" .. s.key .. "_readout"].caption = c.cfg[s.key] .. s.unit
     end
   end
+  save_tags(c)
   M.refresh_open()
 end)
 
@@ -380,11 +418,12 @@ script.on_event(defines.events.on_gui_elem_changed, function(e)
   else
     return
   end
+  save_tags(c)
   M.refresh_open()
 end)
 
 script.on_event(defines.events.on_entity_settings_pasted, function(e)
-  if e.source.name == M.NAME and e.destination.name == M.NAME then
+  if M.is_computer(e.source) and M.is_computer(e.destination) then
     local src = storage.computers[e.source.unit_number]
     if src then M.add(e.destination, {aa_cfg = src.cfg}) end
   end
@@ -399,7 +438,7 @@ script.on_event(defines.events.on_player_setup_blueprint, function(e)
     if not (bp and bp.valid_for_read) then return end
   end
   for index, ent in pairs(e.mapping.get()) do
-    local c = ent.valid and ent.name == M.NAME and storage.computers[ent.unit_number]
+    local c = M.is_computer(ent) and storage.computers[ent.unit_number]
     if c then bp.set_blueprint_entity_tag(index, "aa_cfg", c.cfg) end
   end
 end)
