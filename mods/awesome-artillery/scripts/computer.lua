@@ -9,7 +9,7 @@ local deepcopy = util.table.deepcopy
 
 local M = {}
 
-M.NAME = "aa-targeting-computer"
+M.NAME = "awe-art-targeting-computer"
 M.BASE_MAX_DISTANCE = 500 -- grows with artillery range research
 local SIZES = {"small", "medium", "big", "huge"}
 local SIZE_LABELS = {small = "Small", medium = "Medium", big = "Big", huge = "Huge"}
@@ -35,7 +35,7 @@ local INPUTS = {
 -- (it's prototype data: identical everywhere, safe to keep outside storage).
 local CATALOGUE
 local function catalogue()
-  CATALOGUE = CATALOGUE or prototypes.mod_data["aa-asteroids"].data
+  CATALOGUE = CATALOGUE or prototypes.mod_data["awe-art-asteroids"].data
   return CATALOGUE
 end
 M.catalogue = catalogue
@@ -67,7 +67,7 @@ end
 local function save_tags(c)
   if c and c.entity and c.entity.valid and c.entity.name == "entity-ghost" then
     local t = c.entity.tags or {}
-    t.aa_cfg = deepcopy(c.cfg)
+    t.awe_art_cfg = deepcopy(c.cfg)
     c.entity.tags = t
   end
 end
@@ -79,7 +79,7 @@ function M.init()
 end
 
 function M.add(entity, tags)
-  local raw = (tags and tags.aa_cfg) or (entity.name == "entity-ghost" and entity.tags and entity.tags.aa_cfg)
+  local raw = (tags and tags.awe_art_cfg) or (entity.name == "entity-ghost" and entity.tags and entity.tags.awe_art_cfg)
   local c = {entity = entity, cfg = complete(raw and deepcopy(raw) or default_cfg())}
   storage.computers[entity.unit_number] = c
   save_tags(c)
@@ -263,13 +263,13 @@ local function describe(r)
 end
 
 local function signal_toggle(parent, key, cfg, caption, tooltip)
-  local flow = parent.add{type = "flow", name = "aa_tc_sigflow_" .. key, direction = "horizontal"}
+  local flow = parent.add{type = "flow", name = "awe_art_tc_sigflow_" .. key, direction = "horizontal"}
   flow.style.vertical_align = "center"
   flow.style.horizontal_spacing = 6
-  flow.add{type = "checkbox", name = "aa_tc_use_" .. key, state = cfg.use[key] or false, caption = caption,
+  flow.add{type = "checkbox", name = "awe_art_tc_use_" .. key, state = cfg.use[key] or false, caption = caption,
     tooltip = tooltip or "Override this setting from a circuit network signal"}
   if cfg.signals[key] then
-    local b = flow.add{type = "choose-elem-button", name = "aa_tc_sig_" .. key, elem_type = "signal",
+    local b = flow.add{type = "choose-elem-button", name = "awe_art_tc_sig_" .. key, elem_type = "signal",
       signal = cfg.signals[key], tooltip = "Circuit signal to read"}
     b.style.size = 28
   end
@@ -283,8 +283,8 @@ local function sync_control_states(f, c)
   local cfg = c.cfg
   local r = effective(c, true)
 
-  if f.inside.subheader and f.inside.subheader.aa_tc_now then
-    f.inside.subheader.aa_tc_now.caption = describe(r)
+  if f.inside.subheader and f.inside.subheader.awe_art_tc_now then
+    f.inside.subheader.awe_art_tc_now.caption = describe(r)
   end
 
   -- Enable/disable manual size checkboxes when circuit min-size override is active
@@ -292,7 +292,7 @@ local function sync_control_states(f, c)
   if sizes_row and sizes_row.sizes_left then
     local manual_sizes = not cfg.use.size
     for _, s in pairs(SIZES) do
-      local cb = sizes_row.sizes_left["aa_tc_size_" .. s]
+      local cb = sizes_row.sizes_left["awe_art_tc_size_" .. s]
       if cb then
         cb.enabled = manual_sizes
         cb.state = (not manual_sizes and r) and (r.sizes[s] or false) or (cfg.sizes[s] or false)
@@ -305,7 +305,7 @@ local function sync_control_states(f, c)
   if types_row and types_row.types_left then
     local manual_types = not cfg.use.types
     for i = 1, CHUNK_SLOTS do
-      local slot = types_row.types_left["aa_tc_chunk_" .. i]
+      local slot = types_row.types_left["awe_art_tc_chunk_" .. i]
       if slot then slot.enabled = manual_types end
     end
   end
@@ -318,12 +318,12 @@ local function sync_control_states(f, c)
       local max = s.max or limit
       local manual = not cfg.use[s.key]
       local val = (not manual and r) and r[s.key] or cfg[s.key]
-      local sl = tbl["aa_tc_" .. s.key]
+      local sl = tbl["awe_art_tc_" .. s.key]
       if sl then
         sl.enabled = manual
         sl.slider_value = clamp(val, s.min, max)
       end
-      local tf = tbl["aa_tc_txt_" .. s.key]
+      local tf = tbl["awe_art_tc_txt_" .. s.key]
       if tf then
         tf.enabled = manual
         -- Don't clobber text while the player is actively typing in this field
@@ -338,10 +338,10 @@ end
 function M.open(p, entity)
   local c = storage.computers[entity.unit_number]
   if not c then M.add(entity); c = storage.computers[entity.unit_number] end
-  if p.gui.screen.aa_tc then p.gui.screen.aa_tc.destroy() end
+  if p.gui.screen.awe_art_tc then p.gui.screen.awe_art_tc.destroy() end
   local limit = max_distance(entity.force)
 
-  local f = p.gui.screen.add{type = "frame", name = "aa_tc", direction = "vertical"}
+  local f = p.gui.screen.add{type = "frame", name = "awe_art_tc", direction = "vertical"}
   f.auto_center = true
 
   -- Standard Factorio 2.0 titlebar with draggable space and close [X] button
@@ -350,7 +350,7 @@ function M.open(p, entity)
   titlebar.style.vertical_align = "center"
   titlebar.add{
     type = "label",
-    caption = {"entity-name.aa-targeting-computer"},
+    caption = {"entity-name.awe-art-targeting-computer"},
     style = "frame_title",
     ignored_by_interaction = true,
   }
@@ -360,7 +360,7 @@ function M.open(p, entity)
   drag.style.minimal_width = 40
   titlebar.add{
     type = "sprite-button",
-    name = "aa_tc_close",
+    name = "awe_art_tc_close",
     style = "frame_action_button",
     sprite = "utility/close",
     hovered_sprite = "utility/close_black",
@@ -375,7 +375,7 @@ function M.open(p, entity)
   subheader.style.horizontally_stretchable = true
   subheader.style.vertical_align = "center"
   subheader.style.padding = {6, 12, 6, 12}
-  local now = subheader.add{type = "label", name = "aa_tc_now", caption = describe(effective(c, true))}
+  local now = subheader.add{type = "label", name = "awe_art_tc_now", caption = describe(effective(c, true))}
   now.style.single_line = false
   now.style.maximal_width = 500
 
@@ -394,7 +394,7 @@ function M.open(p, entity)
     tooltip = "Which asteroid sizes this computer allows artillery to engage"}
   sz_lbl.style.width = 76
   for _, s in pairs(SIZES) do
-    sizes_left.add{type = "checkbox", name = "aa_tc_size_" .. s, caption = SIZE_LABELS[s], state = c.cfg.sizes[s] or false}
+    sizes_left.add{type = "checkbox", name = "awe_art_tc_size_" .. s, caption = SIZE_LABELS[s], state = c.cfg.sizes[s] or false}
   end
   local sp1 = sizes_row.add{type = "empty-widget"}
   sp1.style.horizontally_stretchable = true
@@ -412,7 +412,7 @@ function M.open(p, entity)
     tooltip = "Filter by asteroid chunk type. Leave all slots empty to target every asteroid type."}
   ty_lbl.style.width = 82
   for i = 1, CHUNK_SLOTS do
-    local b = types_left.add{type = "choose-elem-button", name = "aa_tc_chunk_" .. i, elem_type = "asteroid-chunk",
+    local b = types_left.add{type = "choose-elem-button", name = "awe_art_tc_chunk_" .. i, elem_type = "asteroid-chunk",
       ["asteroid-chunk"] = c.cfg.chunks[i], tooltip = "Asteroid chunk filter (empty = any type)"}
     b.style.size = 32
   end
@@ -438,7 +438,7 @@ function M.open(p, entity)
 
     local sl = tbl.add{
       type = "slider",
-      name = "aa_tc_" .. s.key,
+      name = "awe_art_tc_" .. s.key,
       minimum_value = s.min,
       maximum_value = max,
       value_step = s.step,
@@ -450,7 +450,7 @@ function M.open(p, entity)
 
     local tf = tbl.add{
       type = "textfield",
-      name = "aa_tc_txt_" .. s.key,
+      name = "awe_art_tc_txt_" .. s.key,
       text = tostring(val),
       numeric = true,
       allow_decimal = false,
@@ -508,7 +508,7 @@ function M.sync_zones()
   end
   for _, p in pairs(game.connected_players) do
     local c = open_entry(p)
-    if c and p.gui.screen.aa_tc and not storage.debug then wish(c, p) end
+    if c and p.gui.screen.awe_art_tc and not storage.debug then wish(c, p) end
   end
   for key, z in pairs(storage.zones) do
     local w = want[key]
@@ -529,7 +529,7 @@ end
 function M.refresh_open()
   for _, p in pairs(game.connected_players) do
     local c = open_entry(p)
-    local f = p.gui.screen.aa_tc
+    local f = p.gui.screen.awe_art_tc
     if c and f then sync_control_states(f, c) end
   end
   M.sync_zones()
@@ -540,7 +540,7 @@ script.on_event(defines.events.on_gui_opened, function(e)
 end)
 
 script.on_event(defines.events.on_gui_closed, function(e)
-  if e.element and e.element.valid and e.element.name == "aa_tc" then
+  if e.element and e.element.valid and e.element.name == "awe_art_tc" then
     e.element.destroy()
     storage.open_computer[e.player_index] = nil
     M.sync_zones()
@@ -548,9 +548,9 @@ script.on_event(defines.events.on_gui_closed, function(e)
 end)
 
 script.on_event(defines.events.on_gui_click, function(e)
-  if e.element and e.element.valid and e.element.name == "aa_tc_close" then
+  if e.element and e.element.valid and e.element.name == "awe_art_tc_close" then
     local p = game.get_player(e.player_index)
-    if p.gui.screen.aa_tc then p.gui.screen.aa_tc.destroy() end
+    if p.gui.screen.awe_art_tc then p.gui.screen.awe_art_tc.destroy() end
     storage.open_computer[e.player_index] = nil
     M.sync_zones()
   end
@@ -560,9 +560,9 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(e)
   local p = game.get_player(e.player_index)
   local c = open_entry(p)
   local name = e.element.name
-  if not c or name:sub(1, 6) ~= "aa_tc_" then return end
-  local size = name:match("^aa_tc_size_(%a+)$")
-  local use = name:match("^aa_tc_use_(%a+)$")
+  if not c or name:sub(1, 6) ~= "awe_art_tc_" then return end
+  local size = name:match("^awe_art_tc_size_(%a+)$")
+  local use = name:match("^awe_art_tc_use_(%a+)$")
   if size then c.cfg.sizes[size] = e.element.state end
   if use then c.cfg.use[use] = e.element.state end
   save_tags(c)
@@ -574,9 +574,9 @@ script.on_event(defines.events.on_gui_value_changed, function(e)
   local c = open_entry(p)
   if not c then return end
   for _, s in pairs(SLIDERS) do
-    if e.element.name == "aa_tc_" .. s.key then
+    if e.element.name == "awe_art_tc_" .. s.key then
       c.cfg[s.key] = math.floor(e.element.slider_value + 0.5)
-      local tf = e.element.parent["aa_tc_txt_" .. s.key]
+      local tf = e.element.parent["awe_art_tc_txt_" .. s.key]
       if tf then tf.text = tostring(c.cfg[s.key]) end
     end
   end
@@ -588,7 +588,7 @@ local function on_textfield_edit(e, confirm)
   local p = game.get_player(e.player_index)
   local c = open_entry(p)
   if not c or not (e.element and e.element.valid) then return end
-  local key = e.element.name:match("^aa_tc_txt_(%a+)$")
+  local key = e.element.name:match("^awe_art_tc_txt_(%a+)$")
   if not key then return end
   local limit = max_distance(c.entity.force)
   for _, s in pairs(SLIDERS) do
@@ -599,14 +599,14 @@ local function on_textfield_edit(e, confirm)
       if num then
         local v = clamp(math.floor(num), s.exact_min, exact_max)
         c.cfg[key] = v
-        local sl = e.element.parent["aa_tc_" .. key]
+        local sl = e.element.parent["awe_art_tc_" .. key]
         if sl then sl.slider_value = clamp(v, s.min, slider_max) end
         if confirm then e.element.text = tostring(v) end
         save_tags(c)
         M.sync_zones()
-        local f = p.gui.screen.aa_tc
-        if f and f.inside and f.inside.subheader and f.inside.subheader.aa_tc_now then
-          f.inside.subheader.aa_tc_now.caption = describe(effective(c, true))
+        local f = p.gui.screen.awe_art_tc
+        if f and f.inside and f.inside.subheader and f.inside.subheader.awe_art_tc_now then
+          f.inside.subheader.awe_art_tc_now.caption = describe(effective(c, true))
         end
       elseif confirm then
         e.element.text = tostring(c.cfg[key])
@@ -623,8 +623,8 @@ script.on_event(defines.events.on_gui_elem_changed, function(e)
   local p = game.get_player(e.player_index)
   local c = open_entry(p)
   if not c then return end
-  local key = e.element.name:match("^aa_tc_sig_(%a+)$")
-  local slot = tonumber(e.element.name:match("^aa_tc_chunk_(%d+)$"))
+  local key = e.element.name:match("^awe_art_tc_sig_(%a+)$")
+  local slot = tonumber(e.element.name:match("^awe_art_tc_chunk_(%d+)$"))
   if key then
     -- keep a signal selected: an input without one can't be switched on
     if e.element.elem_value then c.cfg.signals[key] = e.element.elem_value else e.element.elem_value = c.cfg.signals[key] end
@@ -640,7 +640,7 @@ end)
 script.on_event(defines.events.on_entity_settings_pasted, function(e)
   if M.is_computer(e.source) and M.is_computer(e.destination) then
     local src = storage.computers[e.source.unit_number]
-    if src then M.add(e.destination, {aa_cfg = src.cfg}) end
+    if src then M.add(e.destination, {awe_art_cfg = src.cfg}) end
   end
 end)
 
@@ -654,7 +654,7 @@ script.on_event(defines.events.on_player_setup_blueprint, function(e)
   end
   for index, ent in pairs(e.mapping.get()) do
     local c = M.is_computer(ent) and storage.computers[ent.unit_number]
-    if c then bp.set_blueprint_entity_tag(index, "aa_cfg", c.cfg) end
+    if c then bp.set_blueprint_entity_tag(index, "awe_art_cfg", c.cfg) end
   end
 end)
 

@@ -105,7 +105,7 @@ local function build_ship()
     end
   end
   -- computer: everything, all around
-  make("aa-targeting-computer", 0, 12)
+  make("awe-art-targeting-computer", 0, 12)
   local counts = {}
   for _, e in pairs(s.find_entities_filtered{force = force}) do
     e.destructible = false
@@ -122,11 +122,11 @@ local function build_ship()
 end
 
 local function place_buttons(p)
-  local f = p.gui.screen.aa_shots
+  local f = p.gui.screen.awe_art_shots
   if not f then
-    f = p.gui.screen.add{type = "flow", name = "aa_shots", direction = "horizontal"}
-    for _, b in pairs{{"aa_shot_wide", "16:9", "Screenshot 3840×2160, no UI"},
-                      {"aa_shot_square", "1:1", "Screenshot 2048×2048, no UI (thumbnail)"}} do
+    f = p.gui.screen.add{type = "flow", name = "awe_art_shots", direction = "horizontal"}
+    for _, b in pairs{{"awe_art_shot_wide", "16:9", "Screenshot 3840×2160, no UI"},
+                      {"awe_art_shot_square", "1:1", "Screenshot 2048×2048, no UI (thumbnail)"}} do
       local btn = f.add{type = "button", name = b[1], caption = b[2], tooltip = b[3], style = "mini_button"}
       btn.style.width, btn.style.height = 36, 20
       btn.style.font = "default-small"
@@ -138,6 +138,10 @@ end
 
 script.on_init(function()
   storage.boarded = {}
+  local arg = script.test_arg
+  if arg then
+    storage.save_at = tonumber(arg:match("(%d+)")) or 600
+  end
   build_ship()
 end)
 
@@ -152,9 +156,9 @@ script.on_event({defines.events.on_player_display_resolution_changed, defines.ev
 
 script.on_event(defines.events.on_gui_click, function(e)
   local name = e.element.valid and e.element.name
-  if name ~= "aa_shot_wide" and name ~= "aa_shot_square" then return end
+  if name ~= "awe_art_shot_wide" and name ~= "awe_art_shot_square" then return end
   local p = game.get_player(e.player_index)
-  local square = name == "aa_shot_square"
+  local square = name == "awe_art_shot_square"
   local path = string.format("awesome-artillery-showcase-%d%s.png", game.tick, square and "-square" or "")
   game.take_screenshot{player = p, resolution = square and {2048, 2048} or {3840, 2160}, show_gui = false,
     show_entity_info = false, path = path}
@@ -190,5 +194,21 @@ script.on_event(defines.events.on_tick, function(e)
   if pf.space_connection then
     pf.speed = SPEED
     if pf.distance > 0.8 then pf.distance = 0.2 end
+  end
+  if storage.save_at then
+    if e.tick == storage.save_at then
+      print("[SHOWCASE] saving _autosave-showcase at tick " .. e.tick)
+      game.auto_save("showcase")
+      if script.test_arg then return script.finish_test(true) end
+    elseif e.tick == storage.save_at + 1 then
+      local s = pf.surface
+      game.take_screenshot{surface = s, position = {0, -55}, resolution = {1920, 1080}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-16x9.png"}
+      game.take_screenshot{surface = s, position = {0, -55}, resolution = {2048, 2048}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-square.png"}
+      game.take_screenshot{surface = s, position = {0, -55}, resolution = {512, 512}, zoom = 0.45,
+        show_gui = false, show_entity_info = false, path = "showcase-thumb-512.png"}
+      print("[SHOWCASE] screenshots written to script-output/showcase-*.png")
+    end
   end
 end)

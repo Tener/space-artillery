@@ -7,8 +7,8 @@ local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
 local SHELLS = {
   ["artillery-shell"] = {physical = 1000, explosion = 1000},
-  ["aa-steel-artillery-shell"] = {physical = 200, explosion = 800},
-  ["aa-promethium-artillery-shell"] = {physical = 4000, explosion = 1000},
+  ["awe-art-steel-artillery-shell"] = {physical = 200, explosion = 800},
+  ["awe-art-promethium-artillery-shell"] = {physical = 4000, explosion = 1000},
 }
 local BLAST_RADIUS = 4
 local FOUNDATION = "space-platform-foundation"
@@ -18,8 +18,8 @@ local BUILD_FILTER = {
   {filter = "ghost_name", name = computer.NAME, mode = "or"},
 }
 local ASTEROID_FILTER = {{filter = "type", type = "asteroid"}}
-local BALLISTICS_TECH = "aa-asteroid-ballistics"
-local PROMETHIUM_BALLISTICS_TECH = "aa-promethium-ballistics"
+local BALLISTICS_TECH = "awe-art-asteroid-ballistics"
+local PROMETHIUM_BALLISTICS_TECH = "awe-art-promethium-ballistics"
 local BALLISTICS_KILLS = 500
 local BALLISTICS_CHUNKS = {"metallic-asteroid-chunk", "carbonic-asteroid-chunk", "oxide-asteroid-chunk"}
 local MAX_ROTATION_LEVEL = 10
@@ -51,14 +51,14 @@ end
 
 local function rotation_turret_name(force)
   for level = MAX_ROTATION_LEVEL, 1, -1 do
-    local tech = force.technologies["aa-artillery-rotation-" .. level]
-    if tech and tech.researched then return "aa-artillery-turret-r" .. level end
+    local tech = force.technologies["awe-art-artillery-rotation-" .. level]
+    if tech and tech.researched then return "awe-art-artillery-turret-r" .. level end
   end
   return "artillery-turret"
 end
 
 local function shell_velocity_mult(force)
-  local tech = force and force.technologies["aa-artillery-shell-velocity-1"]
+  local tech = force and force.technologies["awe-art-artillery-shell-velocity-1"]
   if not tech then return 1 end
   local levels = (tech.level or 1) - 1
   if tech.researched then levels = levels + 1 end
@@ -255,7 +255,7 @@ local function update_asteroid(tr, ctx)
   if tr.d and tr.d.valid then
     if moved then tr.d.teleport(aim) end
   else
-    tr.d = s.create_entity{name = "aa-decoy-" .. name, position = aim, force = "enemy"}
+    tr.d = s.create_entity{name = "awe-art-decoy-" .. name, position = aim, force = "enemy"}
     tr.dh = nil
   end
   if tr.d and tr.dh ~= health then tr.d.health = health; tr.dh = health end
@@ -275,8 +275,8 @@ local function scan_surface(s, turrets, interval)
   -- read once per interval: turret positions, settings, hull outline
   local g = settings.global
   local ctx = {s = s, force = force, interval = interval, scan_tick = game.tick, turrets = {},
-    min_rank = SIZE_RANK[g["aa-min-size"].value], max_shells = g["aa-max-shells"].value,
-    blast = BLAST_RADIUS + g["aa-safety-margin"].value, hull = hull_boxes(s)}
+    min_rank = SIZE_RANK[g["awe-art-min-size"].value], max_shells = g["awe-art-max-shells"].value,
+    blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s)}
   storage.ctx[s.index] = ctx
   local cx, cy = 0, 0
   local has_promethium, has_tungsten, has_steel = false, false, false
@@ -286,13 +286,13 @@ local function scan_surface(s, turrets, interval)
     cx, cy = cx + p.x, cy + p.y
     local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
     if inv then
-      if inv.get_item_count("aa-promethium-artillery-shell") > 0 then has_promethium = true end
+      if inv.get_item_count("awe-art-promethium-artillery-shell") > 0 then has_promethium = true end
       if inv.get_item_count("artillery-shell") > 0 then has_tungsten = true end
-      if inv.get_item_count("aa-steel-artillery-shell") > 0 then has_steel = true end
+      if inv.get_item_count("awe-art-steel-artillery-shell") > 0 then has_steel = true end
     end
   end
-  ctx.shell = has_promethium and "aa-promethium-artillery-shell"
-    or ((has_tungsten or not has_steel) and "artillery-shell" or "aa-steel-artillery-shell")
+  ctx.shell = has_promethium and "awe-art-promethium-artillery-shell"
+    or ((has_tungsten or not has_steel) and "artillery-shell" or "awe-art-steel-artillery-shell")
   cx, cy = cx / #turrets, cy / #turrets
   local spread = 0
   for _, t in pairs(ctx.turrets) do spread = math.max(spread, dist(cx, cy, t[1], t[2])) end
@@ -301,7 +301,7 @@ local function scan_surface(s, turrets, interval)
   ctx.reach_min, ctx.reach_max = math.max(0, c.min_range - spread), range + spread
   -- targeting computers: nil rules = no restriction (only when computers aren't required and none are built)
   local rules, present = computer.rules(s.index)
-  if not present and not settings.global["aa-require-computer"].value then rules = nil end
+  if not present and not settings.global["awe-art-require-computer"].value then rules = nil end
   ctx.rules = rules
   if rules and #rules == 0 then return 0 end -- nothing allowed; unseen asteroids are dropped in their slots
   -- TODO(perf): every asteroid in this circle gets a full update, even ones that can never
@@ -377,7 +377,7 @@ local function update(tick, interval)
 end
 
 script.on_event(defines.events.on_tick, function(e)
-  local interval = settings.global["aa-update-interval"].value
+  local interval = settings.global["awe-art-update-interval"].value
   if not P then return update(e.tick, interval) end
   local t = helpers.create_profiler()
   local n, found = update(e.tick, interval)
@@ -469,10 +469,10 @@ script.on_configuration_changed(function()
   for _, f in pairs(game.forces) do check_ballistics_tech(f) end
 end)
 
-commands.add_command("aa-debug", "Toggle drawing of artillery decoys (red circle = aim point).", function(cmd)
+commands.add_command("awe-art-debug", "Toggle drawing of artillery decoys (red circle = aim point).", function(cmd)
   storage.debug = not storage.debug
   local p = cmd.player_index and game.get_player(cmd.player_index)
-  local msg = "aa-debug " .. (storage.debug and "on" or "off")
+  local msg = "awe-art-debug " .. (storage.debug and "on" or "off")
   if p then p.print(msg) else print(msg) end
 end)
 
@@ -523,6 +523,6 @@ remote.add_interface("awesome-artillery", {
     computer.set_cfg(unit_number, cfg)
   end,
   -- only the owning mod may change its runtime-global settings
-  set_min_size = function(size) settings.global["aa-min-size"] = {value = size} end,
-  set_interval = function(ticks) settings.global["aa-update-interval"] = {value = ticks} end,
+  set_min_size = function(size) settings.global["awe-art-min-size"] = {value = size} end,
+  set_interval = function(ticks) settings.global["awe-art-update-interval"] = {value = ticks} end,
 })

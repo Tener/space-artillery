@@ -15,14 +15,14 @@ end
 
 -- One invisible decoy per asteroid type. Vanilla artillery auto-targets it; it mirrors the
 -- asteroid's health and resistances so vanilla's predicted-damage check prevents overkill.
-data:extend{{type = "trigger-target-type", name = "aa-decoy"}}
+data:extend{{type = "trigger-target-type", name = "awe-art-decoy"}}
 local empty = {filename = "__core__/graphics/empty.png", size = 1, frame_count = 1}
 local base = data.raw["unit-spawner"]["biter-spawner"]
 for name, asteroid in pairs(data.raw.asteroid) do
   if asteroid.max_health then
     local d = table.deepcopy(base)
-    d.name = "aa-decoy-" .. name
-    d.localised_name = {"entity-name.aa-decoy"}
+    d.name = "awe-art-decoy-" .. name
+    d.localised_name = {"entity-name.awe-art-decoy"}
     d.hidden = true
     d.flags = {"not-on-map", "not-blueprintable", "not-deconstructable", "not-flammable", "no-copy-paste",
       "not-upgradable", "not-selectable-in-game"}
@@ -32,7 +32,7 @@ for name, asteroid in pairs(data.raw.asteroid) do
     d.max_health = asteroid.max_health
     d.resistances = table.deepcopy(asteroid.resistances)
     d.healing_per_tick = 0
-    d.trigger_target_mask = {"aa-decoy"}
+    d.trigger_target_mask = {"awe-art-decoy"}
     d.max_count_of_owned_units = 0
     d.max_friends_around_to_spawn = 0
     d.spawning_cooldown = {1e9, 1e9}
@@ -61,8 +61,8 @@ do
   local gfx = "__awesome-artillery__/graphics/"
   local r = data.raw.radar.radar
   local c = table.deepcopy(data.raw["programmable-speaker"]["programmable-speaker"])
-  c.name = "aa-targeting-computer"
-  c.minable = {mining_time = 0.2, result = "aa-targeting-computer"}
+  c.name = "awe-art-targeting-computer"
+  c.minable = {mining_time = 0.2, result = "awe-art-targeting-computer"}
   c.max_health = r.max_health
   c.corpse = r.corpse
   c.dying_explosion = r.dying_explosion
@@ -105,17 +105,17 @@ do
       },
     },
   }
-  c.factoriopedia_description = {"factoriopedia-description.aa-targeting-computer"}
+  c.factoriopedia_description = {"factoriopedia-description.awe-art-targeting-computer"}
   local item = table.deepcopy(data.raw.item.radar)
-  item.name = "aa-targeting-computer"
-  item.place_result = "aa-targeting-computer"
+  item.name = "awe-art-targeting-computer"
+  item.place_result = "awe-art-targeting-computer"
   item.icon = c.icon
   item.icon_size = 64
   item.icons = nil
   item.order = "d[radar]-z[targeting-computer]"
-  item.factoriopedia_description = {"factoriopedia-description.aa-targeting-computer"}
+  item.factoriopedia_description = {"factoriopedia-description.awe-art-targeting-computer"}
   data:extend{c, item, {
-    type = "recipe", name = "aa-targeting-computer", enabled = false, energy_required = 30,
+    type = "recipe", name = "awe-art-targeting-computer", enabled = false, energy_required = 30,
     ingredients = {
       -- rare or better, whatever the recipe's quality
       {type = "item", name = "processing-unit", amount = 50, quality_min = "rare"},
@@ -124,13 +124,13 @@ do
       {type = "item", name = "tungsten-plate", amount = 20},
       {type = "item", name = "low-density-structure", amount = 10},
     },
-    results = {{type = "item", name = "aa-targeting-computer", amount = 1}},
+    results = {{type = "item", name = "awe-art-targeting-computer", amount = 1}},
   }, {
-    type = "technology", name = "aa-targeting-computer",
+    type = "technology", name = "awe-art-targeting-computer",
     icon = gfx .. "technology/targeting-computer.png",
     icon_size = 256,
     prerequisites = {"artillery", "electromagnetic-science-pack", "metallurgic-science-pack"},
-    effects = {{type = "unlock-recipe", recipe = "aa-targeting-computer"}},
+    effects = {{type = "unlock-recipe", recipe = "awe-art-targeting-computer"}},
     unit = {count = 1000, time = 60, ingredients = {
       {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
       {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
@@ -143,7 +143,7 @@ do
   -- against big asteroids and never breaks huge asteroids' 3000 flat physical resistance.
   local steel = data.raw.item["steel-plate"]
   local fhs = table.deepcopy(steel)
-  fhs.name = "aa-flash-hardened-steel"
+  fhs.name = "awe-art-flash-hardened-steel"
   fhs.order = (steel.order or "c[steel-plate]") .. "-b[flash-hardened]"
   fhs.stack_size = 50
   fhs.icon = gfx .. "icons/flash-hardened-steel.png"
@@ -151,15 +151,14 @@ do
   fhs.icons = nil
   fhs.random_tint_color = nil
   fhs.factoriopedia_simulation = nil
-  fhs.factoriopedia_description = {"factoriopedia-description.aa-flash-hardened-steel"}
+  fhs.factoriopedia_description = {"factoriopedia-description.awe-art-flash-hardened-steel"}
 
   local proj = table.deepcopy(data.raw["artillery-projectile"]["artillery-projectile"])
-  proj.name = "aa-steel-artillery-projectile"
+  proj.name = "awe-art-steel-artillery-projectile"
   proj.hidden_in_factoriopedia = true
   proj.map_color = {0.4, 0.85, 1}
   proj.picture = {
     filename = gfx .. "entity/projectile/steel-shell.png",
-    draw_as_glow = true,
     width = 64,
     height = 64,
     scale = 0.5,
@@ -176,29 +175,28 @@ do
 
   local base_shell = data.raw.ammo["artillery-shell"]
   local shell = table.deepcopy(base_shell)
-  shell.name = "aa-steel-artillery-shell"
+  shell.name = "awe-art-steel-artillery-shell"
   shell.order = (base_shell.order or "d[explosive-cannon-shell]-d[artillery]") .. "-b[steel]"
   shell.icon = gfx .. "icons/steel-artillery-shell.png"
   shell.icon_size = 64
   shell.icons = nil
   shell.factoriopedia_simulation = nil
-  shell.factoriopedia_description = {"factoriopedia-description.aa-steel-artillery-shell"}
+  shell.factoriopedia_description = {"factoriopedia-description.awe-art-steel-artillery-shell"}
   local function set_proj(t, proj_name)
     if type(t) ~= "table" then return end
     if t.type == "artillery" and t.projectile then t.projectile = proj_name end
     for _, v in pairs(t) do set_proj(v, proj_name) end
   end
-  set_proj(shell.ammo_type, "aa-steel-artillery-projectile")
+  set_proj(shell.ammo_type, "awe-art-steel-artillery-projectile")
 
   -- Heavy armor-piercing promethium artillery shell: 4000 physical + 1000 explosion damage,
   -- punching through huge asteroids' 3000 flat physical resistance even at 0% damage research.
   local prom_proj = table.deepcopy(data.raw["artillery-projectile"]["artillery-projectile"])
-  prom_proj.name = "aa-promethium-artillery-projectile"
+  prom_proj.name = "awe-art-promethium-artillery-projectile"
   prom_proj.hidden_in_factoriopedia = true
   prom_proj.map_color = {0.9, 0.3, 1}
   prom_proj.picture = {
     filename = gfx .. "entity/projectile/promethium-shell.png",
-    draw_as_glow = true,
     width = 64,
     height = 64,
     scale = 0.55,
@@ -213,64 +211,64 @@ do
   end
 
   local prom_shell = table.deepcopy(base_shell)
-  prom_shell.name = "aa-promethium-artillery-shell"
+  prom_shell.name = "awe-art-promethium-artillery-shell"
   prom_shell.order = (base_shell.order or "d[explosive-cannon-shell]-d[artillery]") .. "-c[promethium]"
   prom_shell.icon = gfx .. "icons/promethium-artillery-shell.png"
   prom_shell.icon_size = 64
   prom_shell.icons = nil
   prom_shell.factoriopedia_simulation = nil
-  prom_shell.factoriopedia_description = {"factoriopedia-description.aa-promethium-artillery-shell"}
-  set_proj(prom_shell.ammo_type, "aa-promethium-artillery-projectile")
+  prom_shell.factoriopedia_description = {"factoriopedia-description.awe-art-promethium-artillery-shell"}
+  set_proj(prom_shell.ammo_type, "awe-art-promethium-artillery-projectile")
 
   data:extend{fhs, proj, shell, prom_proj, prom_shell, {
-    type = "recipe", name = "aa-flash-hardened-steel", enabled = false, energy_required = 8,
-    allow_productivity = true,
+    type = "recipe", name = "awe-art-flash-hardened-steel", categories = {"metallurgy"}, enabled = false, energy_required = 19.2,
+    allow_productivity = true, auto_recycle = false,
     ingredients = {
-      {type = "item", name = "steel-plate", amount = 2},
+      {type = "fluid", name = "molten-iron", amount = 60, fluidbox_multiplier = 10},
       {type = "item", name = "carbon", amount = 2},
       {type = "item", name = "calcite", amount = 1},
       {type = "item", name = "ice", amount = 2},
     },
-    results = {{type = "item", name = "aa-flash-hardened-steel", amount = 1}},
+    results = {{type = "item", name = "awe-art-flash-hardened-steel", amount = 1}},
   }, {
-    type = "recipe", name = "aa-steel-artillery-shell", enabled = false, energy_required = 15,
+    type = "recipe", name = "awe-art-steel-artillery-shell", categories = {"metallurgy"}, enabled = false, energy_required = 15,
     ingredients = {
-      {type = "item", name = "aa-flash-hardened-steel", amount = 2},
+      {type = "item", name = "awe-art-flash-hardened-steel", amount = 2},
       {type = "item", name = "explosives", amount = 8},
       {type = "item", name = "radar", amount = 1},
     },
-    results = {{type = "item", name = "aa-steel-artillery-shell", amount = 1}},
+    results = {{type = "item", name = "awe-art-steel-artillery-shell", amount = 1}},
   }, {
-    type = "recipe", name = "aa-promethium-artillery-shell", enabled = false, energy_required = 20,
+    type = "recipe", name = "awe-art-promethium-artillery-shell", categories = {"metallurgy"}, enabled = false, energy_required = 20,
     ingredients = {
-      {type = "item", name = "aa-flash-hardened-steel", amount = 2},
+      {type = "item", name = "awe-art-flash-hardened-steel", amount = 2},
       {type = "item", name = "promethium-asteroid-chunk", amount = 1},
       {type = "item", name = "explosives", amount = 8},
       {type = "item", name = "radar", amount = 1},
     },
-    results = {{type = "item", name = "aa-promethium-artillery-shell", amount = 1}},
+    results = {{type = "item", name = "awe-art-promethium-artillery-shell", amount = 1}},
   }, {
-    type = "technology", name = "aa-asteroid-ballistics",
+    type = "technology", name = "awe-art-asteroid-ballistics",
     icon = gfx .. "technology/asteroid-ballistics.png",
     icon_size = 256,
-    factoriopedia_description = {"factoriopedia-description.aa-asteroid-ballistics"},
-    prerequisites = {"aa-targeting-computer"},
+    factoriopedia_description = {"factoriopedia-description.awe-art-asteroid-ballistics"},
+    prerequisites = {"awe-art-targeting-computer"},
     effects = {
-      {type = "nothing", effect_description = {"technology-effect.aa-asteroid-ballistics"}},
+      {type = "nothing", effect_description = {"technology-effect.awe-art-asteroid-ballistics"}},
     },
     research_trigger = {
       type = "scripted",
-      trigger_description = {"technology-trigger.aa-asteroid-ballistics"},
+      trigger_description = {"technology-trigger.awe-art-asteroid-ballistics"},
     },
   }, {
-    type = "technology", name = "aa-steel-artillery-shell",
+    type = "technology", name = "awe-art-steel-artillery-shell",
     icon = gfx .. "technology/steel-artillery-shell.png",
     icon_size = 256,
-    factoriopedia_description = {"factoriopedia-description.aa-steel-artillery-shell"},
-    prerequisites = {"aa-asteroid-ballistics", "advanced-asteroid-processing"},
+    factoriopedia_description = {"factoriopedia-description.awe-art-steel-artillery-shell"},
+    prerequisites = {"awe-art-asteroid-ballistics", "advanced-asteroid-processing"},
     effects = {
-      {type = "unlock-recipe", recipe = "aa-flash-hardened-steel"},
-      {type = "unlock-recipe", recipe = "aa-steel-artillery-shell"},
+      {type = "unlock-recipe", recipe = "awe-art-flash-hardened-steel"},
+      {type = "unlock-recipe", recipe = "awe-art-steel-artillery-shell"},
     },
     unit = {count = 2000, time = 60, ingredients = {
       {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
@@ -278,26 +276,26 @@ do
       {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
     }},
   }, {
-    type = "technology", name = "aa-promethium-ballistics",
+    type = "technology", name = "awe-art-promethium-ballistics",
     icon = gfx .. "technology/promethium-ballistics.png",
     icon_size = 256,
-    factoriopedia_description = {"factoriopedia-description.aa-promethium-ballistics"},
-    prerequisites = {"aa-steel-artillery-shell"},
+    factoriopedia_description = {"factoriopedia-description.awe-art-promethium-ballistics"},
+    prerequisites = {"awe-art-steel-artillery-shell"},
     effects = {
-      {type = "nothing", effect_description = {"technology-effect.aa-promethium-ballistics"}},
+      {type = "nothing", effect_description = {"technology-effect.awe-art-promethium-ballistics"}},
     },
     research_trigger = {
       type = "scripted",
-      trigger_description = {"technology-trigger.aa-promethium-ballistics"},
+      trigger_description = {"technology-trigger.awe-art-promethium-ballistics"},
     },
   }, {
-    type = "technology", name = "aa-promethium-artillery-shell",
+    type = "technology", name = "awe-art-promethium-artillery-shell",
     icon = gfx .. "technology/promethium-artillery-shell.png",
     icon_size = 256,
-    factoriopedia_description = {"factoriopedia-description.aa-promethium-artillery-shell"},
-    prerequisites = {"aa-promethium-ballistics"},
+    factoriopedia_description = {"factoriopedia-description.awe-art-promethium-artillery-shell"},
+    prerequisites = {"awe-art-promethium-ballistics"},
     effects = {
-      {type = "unlock-recipe", recipe = "aa-promethium-artillery-shell"},
+      {type = "unlock-recipe", recipe = "awe-art-promethium-artillery-shell"},
     },
     unit = {count = 4000, time = 60, ingredients = {
       {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
@@ -314,7 +312,7 @@ do
   base_turret.fast_replaceable_group = base_turret.fast_replaceable_group or "artillery-turret"
   for level = 1, 10 do
     local tr = table.deepcopy(base_turret)
-    tr.name = "aa-artillery-turret-r" .. level
+    tr.name = "awe-art-artillery-turret-r" .. level
     tr.localised_name = {"entity-name.artillery-turret"}
     tr.localised_description = {"entity-description.artillery-turret"}
     tr.hidden = true
@@ -332,14 +330,14 @@ do
     if level >= 7 then ing[#ing + 1] = {"promethium-science-pack", 1} end
     data:extend{tr, {
       type = "technology",
-      name = "aa-artillery-rotation-" .. level,
+      name = "awe-art-artillery-rotation-" .. level,
       icons = {
         {icon = gfx .. "technology/artillery-rotation.png", icon_size = 256},
         {icon = "__core__/graphics/icons/technology/effect-constant/effect-constant-movement-speed.png", icon_size = 64, shift = {32, 32}},
       },
-      factoriopedia_description = {"factoriopedia-description.aa-artillery-rotation"},
-      prerequisites = {level == 1 and "aa-targeting-computer" or ("aa-artillery-rotation-" .. (level - 1))},
-      effects = {{type = "nothing", effect_description = {"technology-effect.aa-artillery-rotation", "30"}}},
+      factoriopedia_description = {"factoriopedia-description.awe-art-artillery-rotation"},
+      prerequisites = {level == 1 and "awe-art-targeting-computer" or ("awe-art-artillery-rotation-" .. (level - 1))},
+      effects = {{type = "nothing", effect_description = {"technology-effect.awe-art-artillery-rotation", "30"}}},
       unit = {count = 2000 * (2 ^ (level - 1)), time = 60, ingredients = ing},
       upgrade = true,
     }}
@@ -348,14 +346,14 @@ do
   -- Artillery shell velocity research (infinite, +20% projectile flight speed per level, starting at 2k).
   data:extend{{
     type = "technology",
-    name = "aa-artillery-shell-velocity-1",
+    name = "awe-art-artillery-shell-velocity-1",
     icons = {
       {icon = gfx .. "technology/artillery-shell-velocity.png", icon_size = 256},
       {icon = "__core__/graphics/icons/technology/effect-constant/effect-constant-movement-speed.png", icon_size = 64, shift = {32, 32}},
     },
-    factoriopedia_description = {"factoriopedia-description.aa-artillery-shell-velocity"},
-    prerequisites = {"aa-targeting-computer"},
-    effects = {{type = "nothing", effect_description = {"technology-effect.aa-artillery-shell-velocity", "20"}}},
+    factoriopedia_description = {"factoriopedia-description.awe-art-artillery-shell-velocity"},
+    prerequisites = {"awe-art-targeting-computer"},
+    effects = {{type = "nothing", effect_description = {"technology-effect.awe-art-artillery-shell-velocity", "20"}}},
     unit = {
       count_formula = "2^(L-1)*2000",
       time = 60,
@@ -385,8 +383,7 @@ do
       local force = player.force
       force.set_ammo_damage_modifier("artillery-shell", 1.5)
       force.set_gun_speed_modifier("artillery-shell", 1.0)
-      if force.technologies["aa-artillery-rotation-4"] then force.technologies["aa-artillery-rotation-4"].researched = true end
-      if force.technologies["aa-artillery-shell-velocity-1"] then force.technologies["aa-artillery-shell-velocity-1"].level = 5 end
+      if force.technologies["awe-art-artillery-shell-velocity-1"] then force.technologies["awe-art-artillery-shell-velocity-1"].level = 5 end
       local platform = force.create_space_platform{name = "platform", planet = "nauvis", starter_pack = "space-platform-starter-pack"}
       local hub = platform.apply_starter_pack()
       hub.destructible = false
@@ -395,8 +392,8 @@ do
       s.force_generate_chunk_requests()
 
       local tiles = {}
-      for y = -16, 8 do
-        local hw = y < -8 and math.floor((y + 18) * 1.4) or 14
+      for y = -18, 8 do
+        local hw = y < -10 and math.floor((y + 20) * 1.4) or 14
         for x = -hw, hw do tiles[#tiles + 1] = {name = "space-platform-foundation", position = {x, y}} end
       end
       s.set_tiles(tiles)
@@ -409,29 +406,36 @@ do
 
       local function make(name, pos, dir)
         local e = s.create_entity{name = name, position = pos, force = force, raise_built = true, direction = dir or defines.direction.north}
-        if e then e.destructible = false end
+        if not (e and e.valid) then
+          e = s.find_entities_filtered{position = pos, radius = 1.5, force = force}[1]
+        end
+        if e and e.valid then e.destructible = false end
         return e
       end
 
-      for _, x in pairs{-11, -8, 8, 11} do make("solar-panel", {x, -4}) end
-      for _, x in pairs{-6, 6} do make("substation", {x, -9}) end
+      for _, x in pairs{-10.5, -7.5, 7.5, 10.5} do make("solar-panel", {x, -1.5}) end
+      for _, x in pairs{-6, 6} do make("substation", {x, -6}) end
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
 
-      local t_steel = make("artillery-turret", {-6, -10})
-      t_steel.insert{name = "aa-steel-artillery-shell", count = 15}
-      local t_prom = make("artillery-turret", {6, -10})
-      t_prom.insert{name = "aa-promethium-artillery-shell", count = 15}
+      local t_steel = make("artillery-turret", {-6.5, -10.5})
+      assert(t_steel, "t_steel nil")
+      t_steel.insert{name = "awe-art-steel-artillery-shell", count = 15}
+      local t_prom = make("artillery-turret", {6.5, -10.5})
+      assert(t_prom, "t_prom nil")
+      t_prom.insert{name = "awe-art-promethium-artillery-shell", count = 15}
 
-      for _, pos in pairs{{-3, -14}, {3, -14}} do
+      for _, pos in pairs{{-3, -15}, {3, -15}} do
         local g = make("gun-turret", pos)
-        g.insert{name = "piercing-rounds-magazine", count = 50}
+        if g then g.insert{name = "piercing-rounds-magazine", count = 50} end
       end
 
-      local comp = make("aa-targeting-computer", {0, -10})
-      local cc = make("constant-combinator", {2.5, -10})
-      cc.get_wire_connector(defines.wire_connector_id.circuit_red, true)
-        .connect_to(comp.get_wire_connector(defines.wire_connector_id.circuit_red, true))
+      local comp = make("awe-art-targeting-computer", {0.5, -10.5})
+      local cc = make("constant-combinator", {3.5, -10.5})
+      if cc and comp then
+        cc.get_wire_connector(defines.wire_connector_id.circuit_red, true)
+          .connect_to(comp.get_wire_connector(defines.wire_connector_id.circuit_red, true))
+      end
 
       local configured = false
       local wave = {
@@ -450,13 +454,15 @@ do
           configured = true
           remote.call("awesome-artillery", "set_interval", 10)
           remote.call("awesome-artillery", "set_debug", true)
-          remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
-            sizes = {small = true, medium = true, big = true, huge = true},
-            dir = 0, arc = 120, near = 30, far = 65,
-          })
+          if comp and comp.valid then
+            remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
+              sizes = {small = true, medium = true, big = true, huge = true},
+              dir = 0, arc = 120, near = 30, far = 65,
+            })
+          end
         end
-        if t_steel.valid then t_steel.insert{name = "aa-steel-artillery-shell", count = 5} end
-        if t_prom.valid then t_prom.insert{name = "aa-promethium-artillery-shell", count = 5} end
+        if t_steel and t_steel.valid then t_steel.insert{name = "awe-art-steel-artillery-shell", count = 5} end
+        if t_prom and t_prom.valid then t_prom.insert{name = "awe-art-promethium-artillery-shell", count = 5} end
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
           if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
         end
@@ -470,7 +476,7 @@ do
         local w = wave[idx]
         local a = s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
         if a and not has_mod then
-          local d = s.create_entity{name = "aa-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
+          local d = s.create_entity{name = "awe-art-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
           fallback_decoys[#fallback_decoys + 1] = {a, d}
         end
       end
@@ -490,7 +496,7 @@ do
       require("__core__/lualib/story")
       local player = game.simulation.create_test_player{name = "Spaceman"}
       local force = player.force
-      for _, r in pairs{"aa-flash-hardened-steel", "aa-steel-artillery-shell", "aa-promethium-artillery-shell"} do
+      for _, r in pairs{"awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell", "awe-art-promethium-artillery-shell"} do
         if force.recipes[r] then force.recipes[r].enabled = true end
       end
       local platform = force.create_space_platform{name = "platform", planet = "nauvis", starter_pack = "space-platform-starter-pack"}
@@ -499,15 +505,15 @@ do
       local s = platform.surface
       local tiles = {}
       for x = -12, 12 do
-        for y = -8, 8 do
+        for y = -14, 8 do
           tiles[#tiles + 1] = {name = "space-platform-foundation", position = {x, y}}
         end
       end
       s.set_tiles(tiles)
 
-      player.teleport({0, 0}, s)
+      player.teleport({0, -8}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -1}
+      game.simulation.camera_position = {0, -8.5}
       game.simulation.camera_zoom = 0.85
       game.simulation.hide_cursor = true
 
@@ -518,39 +524,26 @@ do
         return e
       end
 
-      make("substation", {-6, 0})
-      make("substation", {6, 0})
+      make("substation", {-8, -8})
+      make("substation", {8, -8})
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
 
-      local a_fhs1 = make("assembling-machine-3", {-3.5, -2}, defines.direction.north, "aa-flash-hardened-steel")
-      local a_fhs2 = make("assembling-machine-3", {-3.5, 2}, defines.direction.north, "aa-flash-hardened-steel")
-      for y = -4, 4 do make("fast-transport-belt", {0, y}, defines.direction.north) end
-      make("fast-inserter", {-1.5, -2}, defines.direction.west)
-      make("fast-inserter", {-1.5, 2}, defines.direction.west)
-
-      local a_steel = make("assembling-machine-3", {3.5, -2}, defines.direction.north, "aa-steel-artillery-shell")
-      local a_prom = make("assembling-machine-3", {3.5, 2}, defines.direction.north, "aa-promethium-artillery-shell")
-      make("fast-inserter", {1.5, -2}, defines.direction.west)
-      make("fast-inserter", {1.5, 2}, defines.direction.west)
+      local a_fhs = make("foundry", {-3.5, -8.5}, defines.direction.north, "awe-art-flash-hardened-steel")
+      make("fast-inserter", {-0.5, -8.5}, defines.direction.west)
+      local a_steel = make("foundry", {2.5, -8.5}, defines.direction.north, "awe-art-steel-artillery-shell")
 
       local function stock()
-        for _, a in pairs{a_fhs1, a_fhs2} do
-          if a and a.valid then
-            a.insert{name = "steel-plate", count = 10}
-            a.insert{name = "carbon", count = 10}
-            a.insert{name = "calcite", count = 10}
-            a.insert{name = "ice", count = 10}
-          end
+        if a_fhs and a_fhs.valid then
+          a_fhs.insert_fluid{name = "molten-iron", amount = 500}
+          a_fhs.insert{name = "carbon", count = 10}
+          a_fhs.insert{name = "calcite", count = 10}
+          a_fhs.insert{name = "ice", count = 10}
         end
         if a_steel and a_steel.valid then
+          a_steel.insert{name = "awe-art-flash-hardened-steel", count = 6}
           a_steel.insert{name = "explosives", count = 20}
           a_steel.insert{name = "radar", count = 5}
-        end
-        if a_prom and a_prom.valid then
-          a_prom.insert{name = "promethium-asteroid-chunk", count = 5}
-          a_prom.insert{name = "explosives", count = 20}
-          a_prom.insert{name = "radar", count = 5}
         end
       end
       stock()
@@ -570,11 +563,10 @@ do
       local player = game.simulation.create_test_player{name = "Spaceman"}
       local force = player.force
       force.set_gun_speed_modifier("artillery-shell", 1.0)
-      if force.technologies["aa-artillery-rotation-4"] then force.technologies["aa-artillery-rotation-4"].researched = true end
-      if force.technologies["aa-artillery-shell-velocity-1"] then force.technologies["aa-artillery-shell-velocity-1"].level = 5 end
+      if force.technologies["awe-art-artillery-shell-velocity-1"] then force.technologies["awe-art-artillery-shell-velocity-1"].level = 5 end
       for _, r in pairs{"advanced-metallic-asteroid-crushing", "advanced-carbonic-asteroid-crushing",
         "advanced-oxide-asteroid-crushing", "ice-melting", "coal-synthesis", "explosives",
-        "aa-flash-hardened-steel", "aa-steel-artillery-shell"} do
+        "awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell"} do
         if force.recipes[r] then force.recipes[r].enabled = true end
       end
 
@@ -586,48 +578,52 @@ do
       s.force_generate_chunk_requests()
 
       local tiles = {}
-      for y = -16, 10 do
-        local hw = y < -10 and math.floor((y + 18) * 1.6) or 13
+      for y = -18, 10 do
+        local hw = y < -12 and math.floor((y + 20) * 1.6) or 14
         for x = -hw, hw do tiles[#tiles + 1] = {name = "space-platform-foundation", position = {x, y}} end
       end
       s.set_tiles(tiles)
 
-      player.teleport({0, -6}, s)
+      player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -24}
+      game.simulation.camera_position = {0, -26}
       game.simulation.camera_zoom = 0.45
       game.simulation.hide_cursor = true
 
       local function make(name, pos, dir, recipe)
         local e = s.create_entity{name = name, position = pos, force = force, raise_built = true,
           direction = dir or defines.direction.north, recipe = recipe}
-        if e then e.destructible = false end
+        if not (e and e.valid) then
+          e = s.find_entities_filtered{position = pos, radius = 1.5, force = force}[1]
+        end
+        if e and e.valid then e.destructible = false end
         return e
       end
 
-      for _, pos in pairs{{-6, -6}, {6, -6}, {-6, 4}, {6, 4}} do make("substation", pos) end
-      for _, x in pairs{-10, 10} do make("solar-panel", {x, -2}); make("solar-panel", {x, 2}) end
+      for _, pos in pairs{{-6, -6}, {9, -6}, {-6, 5}, {9, 5}} do make("substation", pos) end
+      for _, x in pairs{-10.5, 10.5} do make("solar-panel", {x, -1.5}); make("solar-panel", {x, 1.5}) end
       local eei = make("electric-energy-interface", {0, 8})
       if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
 
-      make("crusher", {-9, -7}, defines.direction.south, "advanced-metallic-asteroid-crushing")
-      make("crusher", {-9, -2}, defines.direction.south, "advanced-carbonic-asteroid-crushing")
-      make("crusher", {-9, 3}, defines.direction.south, "advanced-oxide-asteroid-crushing")
-      make("electric-furnace", {-5, -7})
-      make("chemical-plant", {-5, -2}, defines.direction.east, "coal-synthesis")
-      make("chemical-plant", {-5, 3}, defines.direction.east, "explosives")
+      make("crusher", {-9, -7.5}, defines.direction.south, "advanced-metallic-asteroid-crushing")
+      make("crusher", {-9, -2.5}, defines.direction.south, "advanced-carbonic-asteroid-crushing")
+      make("crusher", {-9, 2.5}, defines.direction.south, "advanced-oxide-asteroid-crushing")
+      make("chemical-plant", {-5.5, -2.5}, defines.direction.east, "coal-synthesis")
+      make("chemical-plant", {-5.5, 2.5}, defines.direction.east, "explosives")
 
-      local a_fhs = make("assembling-machine-3", {-0.5, -2}, defines.direction.north, "aa-flash-hardened-steel")
-      local a_sh = make("assembling-machine-3", {3.5, -2}, defines.direction.north, "aa-steel-artillery-shell")
-      make("fast-inserter", {1.5, -2}, defines.direction.west)
-      make("fast-inserter", {3.5, -4.5}, defines.direction.south)
+      local a_fhs = make("foundry", {-1.5, -7.5}, defines.direction.north, "awe-art-flash-hardened-steel")
+      local a_sh = make("foundry", {4.5, -7.5}, defines.direction.north, "awe-art-steel-artillery-shell")
+      assert(a_fhs and a_sh, "foundry nil in sim_steel_shell")
+      make("fast-inserter", {1.5, -7.5}, defines.direction.west)
+      make("fast-inserter", {4.5, -10.5}, defines.direction.south)
 
-      local turret = make("artillery-turret", {3.5, -7.5})
-      turret.insert{name = "aa-steel-artillery-shell", count = 10}
-      make("aa-targeting-computer", {-1.5, -7.5})
-      for _, x in pairs{-5, 0, 7} do
-        local g = make("gun-turret", {x, -12})
-        g.insert{name = "piercing-rounds-magazine", count = 50}
+      local turret = make("artillery-turret", {4.5, -12.5})
+      assert(turret, "turret nil in sim_steel_shell")
+      turret.insert{name = "awe-art-steel-artillery-shell", count = 10}
+      make("awe-art-targeting-computer", {-1.5, -12.5})
+      for _, x in pairs{-6, 0, 8} do
+        local g = make("gun-turret", {x, -16})
+        if g then g.insert{name = "piercing-rounds-magazine", count = 50} end
       end
 
       local configured = false
@@ -636,18 +632,18 @@ do
           configured = true
           remote.call("awesome-artillery", "set_interval", 10)
         end
-        if a_fhs.valid then
-          a_fhs.insert{name = "steel-plate", count = 10}
+        if a_fhs and a_fhs.valid then
+          a_fhs.insert_fluid{name = "molten-iron", amount = 500}
           a_fhs.insert{name = "carbon", count = 10}
           a_fhs.insert{name = "calcite", count = 10}
           a_fhs.insert{name = "ice", count = 10}
         end
-        if a_sh.valid then
-          a_sh.insert{name = "aa-flash-hardened-steel", count = 6}
+        if a_sh and a_sh.valid then
+          a_sh.insert{name = "awe-art-flash-hardened-steel", count = 6}
           a_sh.insert{name = "explosives", count = 20}
           a_sh.insert{name = "radar", count = 5}
         end
-        if turret.valid then turret.insert{name = "aa-steel-artillery-shell", count = 5} end
+        if turret and turret.valid then turret.insert{name = "awe-art-steel-artillery-shell", count = 5} end
       end
       stock_craft()
 
@@ -670,7 +666,7 @@ do
         local w = wave[idx]
         local a = s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
         if a and not remote.interfaces["awesome-artillery"] then
-          local d = s.create_entity{name = "aa-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
+          local d = s.create_entity{name = "awe-art-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
           fallback_decoys[#fallback_decoys + 1] = {a, d}
         end
       end
@@ -692,9 +688,8 @@ do
       local force = player.force
       force.set_ammo_damage_modifier("artillery-shell", 1.5)
       force.set_gun_speed_modifier("artillery-shell", 1.2)
-      if force.technologies["aa-artillery-rotation-6"] then force.technologies["aa-artillery-rotation-6"].researched = true end
-      if force.technologies["aa-artillery-shell-velocity-1"] then force.technologies["aa-artillery-shell-velocity-1"].level = 6 end
-      for _, r in pairs{"aa-flash-hardened-steel", "aa-promethium-artillery-shell"} do
+      if force.technologies["awe-art-artillery-shell-velocity-1"] then force.technologies["awe-art-artillery-shell-velocity-1"].level = 6 end
+      for _, r in pairs{"awe-art-flash-hardened-steel", "awe-art-promethium-artillery-shell"} do
         if force.recipes[r] then force.recipes[r].enabled = true end
       end
 
@@ -706,39 +701,44 @@ do
       s.force_generate_chunk_requests()
 
       local tiles = {}
-      for y = -16, 8 do
-        local hw = y < -8 and math.floor((y + 18) * 1.5) or 14
+      for y = -18, 8 do
+        local hw = y < -10 and math.floor((y + 20) * 1.5) or 14
         for x = -hw, hw do tiles[#tiles + 1] = {name = "space-platform-foundation", position = {x, y}} end
       end
       s.set_tiles(tiles)
 
-      player.teleport({0, -8}, s)
+      player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -30}
+      game.simulation.camera_position = {0, -32}
       game.simulation.camera_zoom = 0.42
       game.simulation.hide_cursor = true
 
       local function make(name, pos, dir, recipe)
         local e = s.create_entity{name = name, position = pos, force = force, raise_built = true,
           direction = dir or defines.direction.north, recipe = recipe}
-        if e then e.destructible = false end
+        if not (e and e.valid) then
+          e = s.find_entities_filtered{position = pos, radius = 1.5, force = force}[1]
+        end
+        if e and e.valid then e.destructible = false end
         return e
       end
 
-      for _, pos in pairs{{-6, -6}, {6, -6}, {-6, 4}, {6, 4}} do make("substation", pos) end
+      for _, pos in pairs{{-8, -7}, {8, -7}, {-8, 5}, {8, 5}} do make("substation", pos) end
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e8; eei.electric_buffer_size = 1e8 end
 
-      local a_fhs = make("assembling-machine-3", {-3.5, -2}, defines.direction.north, "aa-flash-hardened-steel")
-      local a_prom = make("assembling-machine-3", {3.5, -2}, defines.direction.north, "aa-promethium-artillery-shell")
-      make("fast-inserter", {0, -2}, defines.direction.west)
+      local a_fhs = make("foundry", {-3.5, -7.5}, defines.direction.north, "awe-art-flash-hardened-steel")
+      local a_prom = make("foundry", {2.5, -7.5}, defines.direction.north, "awe-art-promethium-artillery-shell")
+      make("fast-inserter", {-0.5, -7.5}, defines.direction.west)
 
       local turrets = {
-        make("artillery-turret", {-6, -10}),
-        make("artillery-turret", {6, -10}),
+        make("artillery-turret", {-6.5, -12.5}),
+        make("artillery-turret", {6.5, -12.5}),
       }
-      for _, t in pairs(turrets) do t.insert{name = "aa-promethium-artillery-shell", count = 15} end
-      local comp = make("aa-targeting-computer", {0, -10})
+      for _, t in pairs(turrets) do
+        if t and t.valid then t.insert{name = "awe-art-promethium-artillery-shell", count = 15} end
+      end
+      local comp = make("awe-art-targeting-computer", {0, -12.5})
 
       local configured = false
       local wave = {
@@ -754,25 +754,27 @@ do
         if has_mod and not configured then
           configured = true
           remote.call("awesome-artillery", "set_interval", 10)
-          remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
-            sizes = {small = true, medium = true, big = true, huge = true},
-            dir = 0, arc = 120, near = 30, far = 65,
-          })
+          if comp and comp.valid then
+            remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
+              sizes = {small = true, medium = true, big = true, huge = true},
+              dir = 0, arc = 120, near = 30, far = 65,
+            })
+          end
         end
-        if a_fhs.valid then
-          a_fhs.insert{name = "steel-plate", count = 10}
+        if a_fhs and a_fhs.valid then
+          a_fhs.insert_fluid{name = "molten-iron", amount = 500}
           a_fhs.insert{name = "carbon", count = 10}
           a_fhs.insert{name = "calcite", count = 10}
           a_fhs.insert{name = "ice", count = 10}
         end
-        if a_prom.valid then
-          a_prom.insert{name = "aa-flash-hardened-steel", count = 6}
+        if a_prom and a_prom.valid then
+          a_prom.insert{name = "awe-art-flash-hardened-steel", count = 6}
           a_prom.insert{name = "promethium-asteroid-chunk", count = 6}
           a_prom.insert{name = "explosives", count = 20}
           a_prom.insert{name = "radar", count = 5}
         end
         for _, t in pairs(turrets) do
-          if t.valid then t.insert{name = "aa-promethium-artillery-shell", count = 5} end
+          if t and t.valid then t.insert{name = "awe-art-promethium-artillery-shell", count = 5} end
         end
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
           if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
@@ -787,7 +789,7 @@ do
         local w = wave[idx]
         local a = s.create_entity{name = w[1], position = {w[2], w[3]}, velocity = {w[4], w[5]}}
         if a and not has_mod then
-          local d = s.create_entity{name = "aa-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
+          local d = s.create_entity{name = "awe-art-decoy-" .. w[1], position = {w[2] + w[4] * 16, w[3] + w[5] * 16}, force = "enemy"}
           fallback_decoys[#fallback_decoys + 1] = {a, d}
         end
       end
@@ -808,38 +810,44 @@ do
   data:extend{
     {
       type = "tips-and-tricks-item",
-      name = "aa-space-artillery",
+      name = "awe-art-space-artillery",
       category = cat,
       indent = base_indent,
-      order = base_order .. "-z[aa-a]",
-      tag = "[entity=aa-targeting-computer]",
+      order = base_order .. "-z[awe-art-a]",
+      tag = "[entity=awe-art-targeting-computer]",
       dependencies = parent and {parent.name} or nil,
-      trigger = {type = "research", technology = "aa-targeting-computer"},
+      trigger = {type = "research", technology = "awe-art-targeting-computer"},
       simulation = sim_space_artillery,
     },
     {
       type = "tips-and-tricks-item",
-      name = "aa-steel-artillery-shell",
+      name = "awe-art-steel-artillery-shell",
       category = cat,
       indent = base_indent + 1,
-      order = base_order .. "-z[aa-b]",
-      tag = "[item=aa-steel-artillery-shell]",
-      dependencies = {"aa-space-artillery"},
-      trigger = {type = "research", technology = "aa-targeting-computer"},
+      order = base_order .. "-z[awe-art-b]",
+      tag = "[item=awe-art-steel-artillery-shell]",
+      dependencies = {"awe-art-space-artillery"},
+      trigger = {type = "research", technology = "awe-art-targeting-computer"},
       simulation = sim_steel_shell,
     },
     {
       type = "tips-and-tricks-item",
-      name = "aa-promethium-artillery-shell",
+      name = "awe-art-promethium-artillery-shell",
       category = cat,
       indent = base_indent + 1,
-      order = base_order .. "-z[aa-c]",
-      tag = "[item=aa-promethium-artillery-shell]",
-      dependencies = {"aa-steel-artillery-shell"},
-      trigger = {type = "research", technology = "aa-promethium-ballistics"},
+      order = base_order .. "-z[awe-art-c]",
+      tag = "[item=awe-art-promethium-artillery-shell]",
+      dependencies = {"awe-art-steel-artillery-shell"},
+      trigger = {type = "research", technology = "awe-art-promethium-ballistics"},
       simulation = sim_promethium_shell,
     },
   }
+  data:extend{{type = "mod-data", name = "awe-art-sims", data = {
+    space = sim_space_artillery.init,
+    fhs = sim_fhs.init,
+    steel = sim_steel_shell.init,
+    prom = sim_promethium_shell.init,
+  }}}
 end
 
 -- Asteroid catalogue for runtime, mod-friendly: an asteroid's type is the chunk it finally
@@ -878,13 +886,13 @@ do
       catalogue[name] = {chunk = chunk, size = math.min(size, 4)}
     end
   end
-  data:extend{{type = "mod-data", name = "aa-asteroids", data = catalogue}}
+  data:extend{{type = "mod-data", name = "awe-art-asteroids", data = catalogue}}
 end
 
 -- Every other turret ignores decoys (verified: without this, rocket turrets shoot them).
 for _, type in pairs{"ammo-turret", "electric-turret", "fluid-turret", "turret"} do
   for _, t in pairs(data.raw[type] or {}) do
     t.ignore_target_mask = t.ignore_target_mask or {}
-    table.insert(t.ignore_target_mask, "aa-decoy")
+    table.insert(t.ignore_target_mask, "awe-art-decoy")
   end
 end
