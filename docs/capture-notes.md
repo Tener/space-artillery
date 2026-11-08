@@ -2,15 +2,15 @@
 
 Run `make visuals` on macOS with Factorio 2.1.24+, FFmpeg and Python 3 installed.
 `tools/capture-visuals.sh --encode-only` reuses captured frames. MP4s contain the full
-sequences at 1280x720 and 20 fps. GIF previews are 800x450 at 10 fps: four seconds
-from each production chapter, and the first eight seconds of the other clips.
+sequences at 1280x720 and 20 fps. GIF previews are 800x450 at 10 fps: two seconds
+per production/overview chapter and the first eight seconds of each combat clip.
 
 | Demo | Visual sequence | Required evidence |
 | --- | --- | --- |
-| Production, 36 s | Collection and crushing; component manufacture; shell casting and loading. Three fixed views follow the material flow. | Every production stage has crafted from collected chunks; shells are made and loaded during filming. |
+| Production, 24 s | Collection and crushing; component manufacture; shell casting and loading. Four close views follow collection, components, casting and loading. | Every production stage has crafted from collected chunks; shells are made and loaded during filming. |
 | Combat, 20 s | A flying artillery platform intercepts a sustained incoming asteroid stream. | At least twelve artillery kills occur within the clip. |
 | Promethium, 20 s | Manufactured promethium shells break huge promethium asteroids amid continuing traffic. | Three huge targets are intercepted during filming; labels show health and destruction. |
-| Overview, 15 s | The whole ship, solar wings and working thrusters remain visible while collection, casting and defense continue. | Positive flight speed, ongoing production and ammunition delivery. |
+| Overview, 12 s | Close shots of the thrusters, a factory flyby and the battery lead into a brief full-ship reveal. | Positive flight speed, ongoing production and ammunition delivery. |
 
 Four filtered collectors feed separate metallic, carbonic, oxide and promethium
 belts. Advanced crushing supplies iron ore, copper ore, carbon, sulfur, ice and
@@ -49,3 +49,7 @@ boundaries, frame counts, firing ticks and asteroid kills. Encoding fails on
 missing frames or unresolved engagements. Dimensions, frame counts and durations
 are checked before replacing clips in `docs/`. Review collection, transfers,
 firing, destruction and the beginning and end of each clip before committing.
+
+Combat cameras alternate muzzle closeups with selected projectile flights and
+impact holds. The promethium camera follows each huge target through its breakup.
+Production uses slow camera moves; the overview retains loaded promethium rounds.

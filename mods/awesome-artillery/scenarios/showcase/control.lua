@@ -5,18 +5,18 @@ local factory_builder = require("factory")
 local WIDTH, HEIGHT = 1280, 720
 local WARMUP = 48000
 local SHOTS = {
-  {name = "production", ticks = 2160, position = {-4, -52}, zoom = 0.5,
+  {name = "production", ticks = 1440, position = {-13, -61}, zoom = 0.95,
     title = "Collect and crush incoming asteroids",
     subtitle = "Separate metallic, carbonic, oxide and promethium feeds", alt = true},
-  {name = "combat", ticks = 1200, position = {0, -93}, zoom = 0.26,
+  {name = "combat", ticks = 1200, position = {0, -54}, zoom = 0.85,
     title = "Intercept incoming asteroids",
     subtitle = "Steel shells | damage +300% | fire rate 4x | rotation VI | velocity IV"},
-  {name = "promethium", ticks = 1200, position = {0, -93}, zoom = 0.26,
+  {name = "promethium", ticks = 1200, position = {0, -54}, zoom = 0.85,
     title = "Break a huge promethium asteroid",
     subtitle = "Big/huge target profile | promethium shells | damage +300% | fire rate 4x"},
-  {name = "hero", ticks = 900, position = {0, -48}, zoom = 0.1,
-    title = "Asteroid-fed artillery in flight",
-    subtitle = "Asteroid collection to shells, turbo belts and powered targeting in flight"},
+  {name = "hero", ticks = 720, position = {0, 47}, zoom = 0.65,
+    title = "Onboard propellant. Three working thrusters.",
+    subtitle = "Fuel and oxidizer manufactured from collected asteroid resources"},
 }
 local next_tick = WARMUP
 for _, shot in ipairs(SHOTS) do
@@ -71,13 +71,48 @@ local function set_view(shot, position, zoom, title, subtitle)
   caption(view)
 end
 
+local function pan_to(position, zoom, ticks)
+  storage.view.motion = {position = position, zoom = zoom, ticks = ticks}
+end
+
+local function camera_view(shot, tick)
+  local base = storage.view
+  local view = {position = {base.position[1], base.position[2]}, zoom = base.zoom,
+    title = base.title, subtitle = base.subtitle}
+  if base.motion then
+    local t = math.min(1, (tick - base.first) / base.motion.ticks)
+    t = t * t * (3 - 2 * t)
+    view.position = {base.position[1] + (base.motion.position[1] - base.position[1]) * t,
+      base.position[2] + (base.motion.position[2] - base.position[2]) * t}
+    view.zoom = base.zoom + (base.motion.zoom - base.zoom) * t
+  end
+  if shot.name == "promethium" then
+    local target = storage.targets[#storage.targets]
+    if target and (target.entity.valid or (target.dead_tick and tick - target.dead_tick <= 60)) then
+      view.position = {target.last_position.x, target.last_position.y + 2}
+      view.zoom = target.entity.valid and 0.9 or 1.05
+      return view
+    end
+  end
+  local action = storage.action
+  if (shot.name == "combat" or shot.name == "promethium") and action then
+    if tick - action.first <= 9 then
+      view.position, view.zoom = action.source, 1
+    elseif not action.impact_tick or tick - action.impact_tick <= 45 then
+      view.position = {action.last_position.x, action.last_position.y - 2}
+      view.zoom = action.impact_tick and 1.1 or 0.9
+    end
+  end
+  return view
+end
+
 local function spawn(name, position, velocity, label)
   local entity = assert(storage.platform.surface.create_entity{
     name = name, position = position, velocity = {x = velocity[1], y = velocity[2]}, force = "enemy",
   })
   local huge = name == "huge-promethium-asteroid"
   local target = {entity = entity, name = label, huge = huge, phase = storage.phase,
-    registration = script.register_on_object_destroyed(entity)}
+    registration = script.register_on_object_destroyed(entity), last_position = entity.position}
   target.label = rendering.draw_text{
     surface = storage.platform.surface, target = {entity = entity, offset = {0, huge and 6 or 2.5}},
     text = label, color = {1, 0.9, 0.65}, font = "default-bold", alignment = "center",
@@ -92,6 +127,7 @@ local function begin_shot(shot)
     if target.label.valid then target.label.destroy() end
   end
   storage.targets = {}
+  storage.action = nil
   for _, entity in pairs(storage.platform.surface.find_entities_filtered{type = "asteroid"}) do
     entity.destroy()
   end
@@ -110,22 +146,25 @@ local function begin_shot(shot)
   storage.stats.shots[shot.name], storage.stats.kills[shot.name] = 0, 0
   storage.stats.laser_kills[shot.name] = 0
   storage.products_before = storage.shells.products_finished
+  storage.total_products_before = storage.shells.products_finished + storage.nodes.prom_shells.products_finished
   storage.ammo_before = 0
   for _, turret in ipairs(storage.turrets) do storage.ammo_before = storage.ammo_before + ammo(turret) end
   assert(storage.platform.space_connection and storage.platform.speed > 0, "each demo must show a ship in flight")
   storage.stats.flight = storage.stats.flight or {}
   storage.stats.flight[shot.name] = {speed = storage.platform.speed, distance = storage.platform.distance}
   set_view(shot)
+  if shot.name == "production" then pan_to({-7, -36}, 0.9, 360) end
   remote.call("awesome-artillery", "set_computer_cfg", storage.computer.unit_number, {
     sizes = {small = false, medium = shot.name ~= "promethium", big = true, huge = true},
     dir = 0, arc = 150, near = 32, far = 70,
   })
-  if shot.name == "promethium" or shot.name == "hero" then
+  if shot.name == "promethium" then
     for _, turret in ipairs(storage.turrets) do turret.clear_items_inside() end
   end
   for i, loader in ipairs(storage.steel_loaders) do
-    loader.disabled_by_script = shot.name == "promethium"
-    storage.prom_loaders[i].disabled_by_script = shot.name ~= "promethium"
+    local heavy = shot.name == "promethium" or shot.name == "hero"
+    loader.disabled_by_script = heavy
+    storage.prom_loaders[i].disabled_by_script = not heavy
   end
   if shot.name ~= "production" then
     for i = 1, 8 do
@@ -133,23 +172,6 @@ local function begin_shot(shot)
         name = (shot.name == "promethium" and "small-" or "medium-") ..
           ({"metallic", "carbonic", "oxide"})[i % 3 + 1] .. "-asteroid",
         position = {-35 + (i - 1) * 10, -101 - (i % 3)}, velocity = {x = 0, y = 0.045}, force = "enemy",
-      }
-    end
-  end
-  if shot.name == "hero" then
-    for _, label in ipairs{
-      {"Collection", {-100, -64}, {-68, -61}, {-30.5, -61.5}},
-      {"Shell casting", {-100, -34}, {-68, -31}, {-16.5, -35.5}},
-      {"Artillery battery", {90, -55}, {82, -52}, {12.5, -52.5}},
-      {"Fuel and oxidizer", {90, 22}, {82, 25}, {24, 20.5}},
-    } do
-      storage.caption[#storage.caption + 1] = rendering.draw_text{
-        surface = storage.platform.surface, text = label[1], target = label[2],
-        font = "default-bold", color = {0.8, 0.87, 0.94}, scale = 1 / shot.zoom,
-      }
-      storage.caption[#storage.caption + 1] = rendering.draw_line{
-        surface = storage.platform.surface, from = label[3], to = label[4],
-        color = {0.55, 0.65, 0.75}, width = 1,
       }
     end
   end
@@ -183,7 +205,8 @@ local function verify_shot(shot)
     end
     say("promethium: %d shots, %d huge interceptions", stats.shots.promethium, #storage.targets)
   elseif shot.name == "hero" then
-    assert(storage.shells.products_finished > storage.products_before, "overview factory must keep working")
+    assert(storage.shells.products_finished + storage.nodes.prom_shells.products_finished > storage.total_products_before,
+      "overview factory must keep working")
     local loaded = 0
     for _, turret in ipairs(storage.turrets) do loaded = loaded + ammo(turret) end
     say("overview: %d shots, %d shells loaded, speed %.2f", stats.shots.hero, loaded, storage.platform.speed)
@@ -199,6 +222,12 @@ script.on_event(defines.events.on_trigger_fired_artillery, function(event)
   if not phase then return end
   storage.stats.shots[phase] = storage.stats.shots[phase] + 1
   storage.stats.events[#storage.stats.events + 1] = {kind = "shot", phase = phase, tick = event.tick}
+  if (phase == "combat" or phase == "promethium") and
+    (not storage.action or event.tick - storage.action.first >= 150) then
+    local source = event.source and event.source.valid and event.source.position or {x = 0, y = -52.5}
+    storage.action = {projectile = event.entity, first = event.tick,
+      source = {source.x, source.y - 2}, last_position = event.entity.position}
+  end
 end)
 
 script.on_event(defines.events.on_entity_died, function(event)
@@ -214,6 +243,7 @@ script.on_event(defines.events.on_entity_died, function(event)
     if target.registration == script.register_on_object_destroyed(event.entity) then
       target.intercepted = true
       target.dead_tick = event.tick
+      target.last_position = event.entity.position
       target.label.target = {event.entity.position.x, event.entity.position.y + (target.huge and 6 or 2.5)}
       target.label.text = target.name .. " destroyed"
       target.label.color = {0.65, 1, 0.7}
@@ -227,6 +257,13 @@ end)
 
 script.on_event(defines.events.on_tick, function(event)
   local platform = storage.platform
+  if storage.action then
+    if storage.action.projectile.valid then
+      storage.action.last_position = storage.action.projectile.position
+    elseif not storage.action.impact_tick then
+      storage.action.impact_tick = event.tick
+    end
+  end
   if event.tick == WARMUP - 600 then platform.paused = false end
   if platform.space_connection and platform.distance > 0.7 then platform.distance = 0.25 end
   -- Physical resource fields: collectors must catch every input. No intermediate
@@ -252,12 +289,28 @@ script.on_event(defines.events.on_tick, function(event)
     if event.tick == shot.first then begin_shot(shot) end
     if event.tick >= shot.first and event.tick <= shot.last then
       local elapsed = event.tick - shot.first
-      if shot.name == "production" and elapsed == 720 then
-        set_view(shot, {-6, 2}, 0.4, "Manufacture every shell ingredient onboard",
-          "Separate belts: ore, carbon, sulfur, ice, calcite, circuits, radar and explosives")
-      elseif shot.name == "production" and elapsed == 1440 then
-        set_view(shot, {0, -33}, 0.3, "Cast shells and feed the battery",
-          "Asteroid-derived shells > hub magazine > four artillery turrets")
+      if shot.name == "production" and elapsed == 360 then
+        set_view(shot, {-20, 8}, 0.8, "Make the components onboard",
+          "Copper cable, circuits, gears and radar on separate feed belts")
+        pan_to({-8, 21}, 0.85, 360)
+      elseif shot.name == "production" and elapsed == 720 then
+        set_view(shot, {-16.5, -35.5}, 1, "Cast the ammunition",
+          "Asteroid-derived steel, explosives and radar become artillery shells")
+        pan_to({-13, -34}, 1.1, 360)
+      elseif shot.name == "production" and elapsed == 1080 then
+        set_view(shot, {0, -54}, 0.85, "Feed the battery",
+          "Manufactured shells arrive from the hub magazine")
+      elseif shot.name == "hero" and elapsed == 180 then
+        set_view(shot, {-2, 12}, 0.65, "A factory in flight",
+          "Collected resources keep the production lines running")
+        pan_to({-2, -26}, 0.65, 180)
+      elseif shot.name == "hero" and elapsed == 360 then
+        set_view(shot, {0, -54}, 0.85, "A loaded artillery battery",
+          "Promethium ammunition, powered targeting and laser point defense")
+      elseif shot.name == "hero" and elapsed == 540 then
+        set_view(shot, {0, -34}, 0.28, "Artillery Vanguard",
+          "Collect. Manufacture. Defend.")
+        pan_to({0, -11}, 0.16, 177)
       end
       if elapsed % 120 == 60 and shot.name ~= "production" then
         for i = 1, 4 do
@@ -281,13 +334,19 @@ script.on_event(defines.events.on_tick, function(event)
       end
       for _, target in ipairs(storage.targets) do
         if target.entity.valid then
+          target.last_position = target.entity.position
           target.label.text = target.name .. " | " .. math.ceil(target.entity.health) .. " HP"
         elseif target.dead_tick and event.tick - target.dead_tick > 120 and target.label.valid then
           target.label.destroy()
         end
       end
       if not script.test_arg and elapsed % FRAME_EVERY == 0 then
-        local view = storage.view
+        local view = camera_view(shot, event.tick)
+        if shot.name == "combat" or shot.name == "promethium" then view.subtitle = shot.subtitle .. extra end
+        caption(view)
+        for _, target in ipairs(storage.targets) do
+          if target.label.valid then target.label.scale = 1 / view.zoom end
+        end
         game.take_screenshot{
           surface = storage.platform.surface, position = view.position,
           resolution = {WIDTH, HEIGHT}, zoom = view.zoom, show_gui = false,

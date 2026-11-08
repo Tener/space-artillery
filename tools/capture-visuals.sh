@@ -45,7 +45,7 @@ for shot in manifest['shots']:
     views = shot['views']
     if len(views) > 1:
         starts = [(view['first'] - shot['first']) / 60 for view in views]
-        intervals = [(start, min(start + 4, duration)) for start in starts]
+        intervals = [(start, min(start + 2, duration)) for start in starts]
         labels = ''.join(f'[v{i}]' for i in range(len(intervals)))
         filters = [f'[0:v]split={len(intervals)}{labels}']
         filters += [f'[v{i}]trim=start={start}:end={end},setpts=PTS-STARTPTS[c{i}]'
