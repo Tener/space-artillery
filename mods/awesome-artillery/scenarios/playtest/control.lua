@@ -261,7 +261,7 @@ local function refresh_all() for _, p in pairs(game.connected_players) do refres
 
 script.on_event(defines.events.on_gui_click, function(e)
   local name = e.element.valid and e.element.name or ""
-  if name:sub(1, 3) ~= "awe_art_" then return end
+  if not name:find("^awe_art_") then return end
   local p = game.get_player(e.player_index)
   local lv = storage.levels
   local speed = name:match("^awe_art_speed_(%d+)$")
@@ -440,6 +440,24 @@ local function test_wiring_and_targeting(pf, comp_a)
   assert(picked_south.unit_number == turrets[4].unit_number, "aim south should pick turret 4 (orientation South)")
   assert(diff_south < 1, "diff south should be nearly 0")
   say("stickiness selection: OK")
+
+  -- 7. Test GUI checkbox: unchecking small size must persist in config
+  local p = game.players[1]
+  if p then
+    remote.call("awesome-artillery", "open_computer", p.index, comp_a.unit_number)
+    local f = p.gui.screen.awe_art_tc
+    if f and f.valid then
+      local cb_small = f.inside.body.sizes_row.sizes_left["awe_art_tc_size_small"]
+      if cb_small and cb_small.valid then
+        cb_small.state = false
+        remote.call("awesome-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
+        local cfg = remote.call("awesome-artillery", "computer_cfg", comp_a.unit_number)
+        say("after unchecking small: cfg.sizes.small=%s", tostring(cfg and cfg.sizes.small))
+        assert(cfg.sizes.small == false, "Small size must be false in config after unchecking!")
+      end
+      f.destroy()
+    end
+  end
 
   -- Clean up created test entities / connections:
   conn_t1_red.disconnect_all()

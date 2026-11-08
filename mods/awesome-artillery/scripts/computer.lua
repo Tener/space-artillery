@@ -572,18 +572,20 @@ script.on_event(defines.events.on_gui_click, function(e)
   end
 end)
 
-script.on_event(defines.events.on_gui_checked_state_changed, function(e)
+local function handle_checked_state_changed(e)
   local p = game.get_player(e.player_index)
   local c = open_entry(p)
   local name = e.element.name
-  if not c or name:sub(1, 6) ~= "awe_art_tc_" then return end
+  if not c or not name:find("^awe_art_tc_") then return end
   local size = name:match("^awe_art_tc_size_(%a+)$")
   local use = name:match("^awe_art_tc_use_(%a+)$")
   if size then c.cfg.sizes[size] = e.element.state end
   if use then c.cfg.use[use] = e.element.state end
   save_tags(c)
   M.refresh_open()
-end)
+end
+M.handle_checked_state_changed = handle_checked_state_changed
+script.on_event(defines.events.on_gui_checked_state_changed, handle_checked_state_changed)
 
 script.on_event(defines.events.on_gui_value_changed, function(e)
   local p = game.get_player(e.player_index)

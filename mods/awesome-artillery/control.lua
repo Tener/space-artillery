@@ -584,6 +584,9 @@ remote.add_interface("awesome-artillery", {
   set_computer_cfg = function(unit_number, cfg)
     computer.set_cfg(unit_number, cfg)
   end,
+  test_gui_check = function(e)
+    computer.handle_checked_state_changed(e)
+  end,
   surface_topology = function(surface_index, force)
     local list = storage.turrets[surface_index] or {}
     local turrets = {}
