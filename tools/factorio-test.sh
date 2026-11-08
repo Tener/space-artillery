@@ -9,7 +9,7 @@
 #   --play        start the game client in MOD/SCENARIO for a human to play, and return
 #                 immediately (the game keeps running until you quit it)
 #   --client      start the normal game client in MOD/SCENARIO (--load-scenario, rendering
-#                 on, script.test_arg is nil) and close it after SECONDS (max 120).
+#                 on, script.test_arg is nil) and close it after SECONDS (max 600).
 #                 Opens a game window; screenshots land in .factorio-test/write/script-output
 #   MODS_DIR      directory with mod-list.json and the mods to load
 #   MOD/SCENARIO  scenario shipped inside a mod, e.g. aa-spike/spike
@@ -41,7 +41,7 @@ elif [[ ${1:-} == --client ]]; then
   [[ $# -eq 3 ]] || die "usage: $0 --client MODS_DIR MOD/SCENARIO SECONDS"
   mods=$1 scenario=$2 secs=$3 ticks=0
   [[ $scenario =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]] || die "bad scenario: $scenario"
-  [[ $secs =~ ^[0-9]+$ ]] && (( secs > 0 && secs <= 120 )) || die "bad seconds: $secs"
+  [[ $secs =~ ^[0-9]+$ ]] && (( secs > 0 && secs <= 600 )) || die "bad seconds: $secs"
 elif [[ ${1:-} == --graphics ]]; then
   graphics=1
   shift
@@ -84,11 +84,16 @@ if (( play )); then
   echo "factorio-test: screenshots land in $work/$mode/script-output"
   exit 0
 elif (( client )); then
-  cmd+=(--load-scenario "$scenario")
+  cmd+=(--load-scenario "$scenario" --disable-audio)
   "${cmd[@]}" > "$log" 2>&1 &
   pid=$!
+  failed=0
   for (( i = 0; i < secs; i++ )); do
     if ! kill -0 "$pid" 2>/dev/null; then break; fi
+    if grep -qE "Error while|non-recoverable|Exception at tick" "$log" 2>/dev/null; then
+      failed=1
+      break
+    fi
     if grep -q "CAPTURE_COMPLETE" "$log" 2>/dev/null; then
       echo "factorio-test: CAPTURE_COMPLETE received"
       sleep 1
@@ -98,7 +103,12 @@ elif (( client )); then
   done
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
+  if grep -qE "Error while|non-recoverable|Exception at tick" "$log" 2>/dev/null; then failed=1; fi
   awk '/^\[/ || /Error/ { print }' "$log"
+  if (( failed )); then
+    tail -n 25 "$log"
+    exit 1
+  fi
   echo "factorio-test: client closed; screenshots:"
   ls "$work/$mode/script-output"
   exit 0
