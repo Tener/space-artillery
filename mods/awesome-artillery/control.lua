@@ -3,7 +3,7 @@
 
 local computer = require("scripts.computer")
 
-local SIZE_RANK = {chunk = 0, small = 1, medium = 2, big = 3, huge = 4}
+local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
 local SHELLS = {
   ["artillery-shell"] = {physical = 1000, explosion = 1000},
@@ -42,7 +42,7 @@ local function init_storage()
   storage.ctx = storage.ctx or {}           -- surface index -> ctx from the surface's last scan
   storage.interval = nil                    -- forces a bucket rebuild on the next tick
   storage.damage = {}                       -- force|shell -> asteroid name -> damage per shell
-  storage.kills = storage.kills or {}       -- force index -> chunk name -> medium+ artillery kills
+  storage.kills = storage.kills or {}       -- force index -> chunk name -> medium/big/huge artillery kills
   storage.promethium_killed = storage.promethium_killed or {} -- force index -> bool
   storage.debug = storage.debug or false
   storage.const = nil
@@ -408,13 +408,15 @@ end
 local function check_ballistics_tech(force)
   local tech = force.technologies[BALLISTICS_TECH]
   if tech and not tech.researched then
-    local ok = true
-    for _, p in pairs(tech.prerequisites) do if not p.researched then ok = false; break end end
     local k = storage.kills[force.index]
-    if ok and k then
+    if k then
+      local sum = 0
       for _, chunk in pairs(BALLISTICS_CHUNKS) do
-        if (k[chunk] or 0) < BALLISTICS_KILLS then ok = false; break end
+        sum = sum + (k[chunk] or 0)
       end
+      pcall(function() tech.saved_progress = math.min(0.999, sum / BALLISTICS_KILLS) end)
+      local ok = sum >= BALLISTICS_KILLS
+      for _, p in pairs(tech.prerequisites) do if not p.researched then ok = false; break end end
       if ok then force.script_trigger_research(BALLISTICS_TECH) end
     end
   end
@@ -428,14 +430,15 @@ end
 
 script.on_event(defines.events.on_entity_died, function(e)
   local info = computer.catalogue()[e.entity.name]
-  if not (info and info.chunk) then return end
+  if not (info and info.chunk and info.size >= 2) then return end
   local cause = e.cause
   local force = (cause and cause.valid and cause.force) or e.force
-  if info.chunk == "promethium-asteroid-chunk" and force then
+  if not force then return end
+  if info.chunk == "promethium-asteroid-chunk" then
     storage.promethium_killed[force.index] = true
     check_ballistics_tech(force)
   end
-  if not (cause and cause.valid and cause.type == "artillery-turret" and info.size >= 2) then return end
+  if not (cause and cause.valid and (cause.type == "artillery-turret" or cause.type == "artillery-wagon")) then return end
   local k = storage.kills[force.index] or {}
   storage.kills[force.index] = k
   k[info.chunk] = (k[info.chunk] or 0) + 1
@@ -459,7 +462,12 @@ script.on_event(defines.events.on_research_finished, on_research_changed)
 script.on_event(defines.events.on_research_reversed, on_research_changed)
 
 script.on_init(function() init_storage(); rescan(); computer.rescan() end)
-script.on_configuration_changed(function() init_storage(); rescan(); computer.rescan() end)
+script.on_configuration_changed(function()
+  init_storage()
+  rescan()
+  computer.rescan()
+  for _, f in pairs(game.forces) do check_ballistics_tech(f) end
+end)
 
 commands.add_command("aa-debug", "Toggle drawing of artillery decoys (red circle = aim point).", function(cmd)
   storage.debug = not storage.debug

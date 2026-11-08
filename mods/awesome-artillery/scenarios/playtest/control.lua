@@ -436,6 +436,7 @@ script.on_init(function()
   storage.shell = storage.case == "steel-shell" and "aa-steel-artillery-shell" or "artillery-shell"
   if storage.case ~= "tech" then
     local f = game.forces.player
+    if f.technologies["aa-targeting-computer"] then f.technologies["aa-targeting-computer"].researched = true end
     if f.technologies["aa-artillery-rotation-4"] then f.technologies["aa-artillery-rotation-4"].researched = true end
     if f.technologies["aa-artillery-shell-velocity-1"] then f.technologies["aa-artillery-shell-velocity-1"].level = 5 end
     storage.levels.rate = 1
@@ -641,22 +642,22 @@ script.on_event(defines.events.on_tick, function(e)
       or r["aa-steel-artillery-shell"].enabled
     say("any recipe enabled at start: %s; fhs allow_productivity=%s", tostring(enabled), tostring(fhs.allowed_effects and fhs.allowed_effects.productivity))
 
-    -- Verify the scripted research trigger: research prerequisites, then kill 500 of each medium asteroid with artillery
+    -- Verify the scripted research trigger: research prerequisite, then kill 500 medium/big/huge asteroids with artillery
     f.technologies["aa-targeting-computer"].researched = true
-    f.technologies["advanced-asteroid-processing"].researched = true
     local s, turret = pf.surface, storage.artillery[1]
-    for _, kind in pairs{"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"} do
-      for i = 1, 500 do
-        if i == 500 and kind == "medium-oxide-asteroid" then
-          say("before final kill: ballistics=%s", tostring(f.technologies["aa-asteroid-ballistics"].researched))
-        end
-        local a = s.create_entity{name = kind, position = {0, -80}, force = "enemy"}
-        a.die(f, turret)
+    local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
+    for i = 1, 500 do
+      if i == 500 then
+        say("before final kill: ballistics=%s saved_progress=%.3f",
+          tostring(f.technologies["aa-asteroid-ballistics"].researched),
+          f.technologies["aa-asteroid-ballistics"].saved_progress)
       end
+      local a = s.create_entity{name = kinds[(i - 1) % #kinds + 1], position = {0, -80}, force = "enemy"}
+      a.die(f, turret)
     end
     local ballistics_done = f.technologies["aa-asteroid-ballistics"].researched
     local shell_auto = f.technologies["aa-steel-artillery-shell"].researched
-    say("after 500x3 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
+    say("after 500 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
 
     -- Verify promethium ballistics trigger: research aa-steel-artillery-shell, then crack 1 promethium asteroid
     f.technologies["aa-steel-artillery-shell"].researched = true

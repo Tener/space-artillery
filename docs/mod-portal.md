@@ -26,10 +26,10 @@ Each computer configures which asteroids its platform's artillery engages:
 ## Space-manufactured shells
 
 - **Flash-hardened steel & Steel artillery shell (`200 physical + 800 explosion`):**
-  - Destroying **500** medium or larger metallic, carbonic, and oxide asteroids with artillery completes **Asteroid ballistics field data**, unlocking the **Steel artillery shell** research (`2,000` packs).
+  - Destroying **500** medium, big, or huge metallic, carbonic, or oxide asteroids with artillery completes **Asteroid ballistics field data**, unlocking the **Steel artillery shell** research (`2,000` packs).
   - Manufactured entirely in space from asteroid resources (`steel-plate`, `carbon`, `calcite`, `ice`, `explosives`, and `radar`) without needing imported Vulcanus tungsten. Matches tungsten shells against small, medium, and big asteroids at base research, scales more slowly on big asteroids, and cannot pierce huge asteroids' 3,000 flat physical armor.
 - **Promethium artillery shell (`4000 physical + 1000 explosion`):**
-  - Destroying any promethium asteroid completes **Promethium ballistics field data**, unlocking the **Promethium artillery shell** research (`4,000` packs).
+  - Destroying any medium, big, or huge promethium asteroid completes **Promethium ballistics field data**, unlocking the **Promethium artillery shell** research (`4,000` packs).
   - Crafted in space from **flash-hardened steel** and **promethium asteroid chunks**, its massive kinetic punch pierces huge asteroids' 3,000 flat physical resistance even at 0% damage research and one-shots big asteroids.
 
 ## Map settings

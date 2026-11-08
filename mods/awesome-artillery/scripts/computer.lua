@@ -12,17 +12,23 @@ local M = {}
 M.NAME = "aa-targeting-computer"
 M.BASE_MAX_DISTANCE = 500 -- grows with artillery range research
 local SIZES = {"small", "medium", "big", "huge"}
-local CHUNK_SLOTS = 8
+local SIZE_LABELS = {small = "Small", medium = "Medium", big = "Big", huge = "Huge"}
+local CHUNK_SLOTS = 6
 local SLIDERS = {
-  {key = "dir", caption = "Direction", min = 0, max = 345, step = 15, unit = "°", signal = "signal-D"},
-  {key = "arc", caption = "Arc width", min = 15, max = 360, step = 15, unit = "°", signal = "signal-A"},
-  {key = "near", caption = "Near distance", min = 0, step = 5, unit = " tiles", signal = "signal-N"},
-  {key = "far", caption = "Far distance", min = 5, step = 5, unit = " tiles", signal = "signal-F"},
+  {key = "dir", caption = "Direction", min = 0, exact_min = 0, max = 345, exact_max = 359, step = 15, unit = "°", signal = "signal-D",
+    tooltip = "Aim sector center bearing (0° = North, 90° = East, 180° = South, 270° = West)"},
+  {key = "arc", caption = "Arc width", min = 15, exact_min = 1, max = 360, exact_max = 360, step = 15, unit = "°", signal = "signal-A",
+    tooltip = "Total angular width of the sector around Direction (360° = full circle)"},
+  {key = "near", caption = "Near range", min = 0, exact_min = 0, step = 5, unit = "tiles", signal = "signal-N",
+    tooltip = "Minimum distance from this targeting computer (artillery minimum range is 32 tiles)"},
+  {key = "far", caption = "Far range", min = 5, exact_min = 1, step = 5, unit = "tiles", signal = "signal-F",
+    tooltip = "Maximum distance from this targeting computer (scales with artillery range research)"},
 }
-local INPUTS = { -- circuit inputs without a slider
-  {key = "size", caption = "Minimum size from signal", signal = "signal-S",
-    tooltip = "Signal value = smallest size to shoot: 1 small, 2 medium, 3 big, 4 huge"},
-  {key = "off", caption = "Switch off when signal > 0", signal = "signal-deny"},
+local INPUTS = {
+  {key = "size", caption = "Min size", signal = "signal-S",
+    tooltip = "Signal value = smallest size to shoot: 1 Small, 2 Medium, 3 Big, 4 Huge"},
+  {key = "off", caption = "Switch off when signal > 0", signal = "signal-deny",
+    tooltip = "Disables this targeting computer while the chosen signal is greater than 0"},
 }
 
 -- LuaModData.data copies the whole table on every access, so read it once per session
@@ -151,7 +157,7 @@ local function effective(c, preview)
   end
   local min_size = get("size")
   if min_size then
-    r.inputs[#r.inputs + 1] = "minimum size"
+    r.inputs[#r.inputs + 1] = "min size"
     r.sizes = {}
     for i, s in pairs(SIZES) do if i >= min_size then r.sizes[s] = true end end
   end
@@ -234,32 +240,99 @@ end
 -- GUI ---------------------------------------------------------------------------------
 
 local function describe(r)
-  if not r then return "[color=1,0.4,0.4]Off (no power or switched off by signal)[/color]" end
+  if not r then
+    return "[img=utility/status_not_working] [color=1,0.45,0.45]Off (no power or switched off by signal)[/color]"
+  end
   local sizes, types = {}, {}
-  for _, s in pairs(SIZES) do if r.sizes[s] then sizes[#sizes + 1] = s end end
+  for _, s in pairs(SIZES) do if r.sizes[s] then sizes[#sizes + 1] = SIZE_LABELS[s] end end
   if r.chunks then
     for name in pairs(r.chunks) do types[#types + 1] = "[asteroid-chunk=" .. name .. "]" end
   else
     types[1] = "all types"
   end
-  local prefix = r.ghost and "[color=0.7,0.85,1]Ghost (applies once built):[/color] " or "Now: "
-  local text = string.format("%s%s; %s; %d° ±%d°; %d-%d tiles", prefix, table.concat(sizes, ", "),
-    table.concat(types, ""), r.dir, r.arc / 2, r.near, r.far)
-  if #r.inputs > 0 then text = text .. "\n[color=0.6,0.9,0.6]From circuit: " .. table.concat(r.inputs, ", ") .. "[/color]" end
+  local badge = r.ghost
+    and "[img=utility/status_blue] [color=0.7,0.85,1]Ghost (applies once built):[/color] "
+    or "[img=utility/status_working] [font=default-semibold]Active:[/font] "
+  local text = string.format("%s%s · %s · %d° ±%d° · %d–%d tiles", badge,
+    #sizes > 0 and table.concat(sizes, ", ") or "none",
+    table.concat(types, " "), r.dir, math.floor(r.arc / 2), r.near, r.far)
+  if #r.inputs > 0 then
+    text = text .. "  [color=0.6,0.9,0.6](circuit: " .. table.concat(r.inputs, ", ") .. ")[/color]"
+  end
   return text
 end
 
-local function input_controls(parent, key, cfg, caption, tooltip)
-  local flow = parent.add{type = "flow", direction = "horizontal"}
+local function signal_toggle(parent, key, cfg, caption, tooltip)
+  local flow = parent.add{type = "flow", name = "aa_tc_sigflow_" .. key, direction = "horizontal"}
   flow.style.vertical_align = "center"
+  flow.style.horizontal_spacing = 6
   flow.add{type = "checkbox", name = "aa_tc_use_" .. key, state = cfg.use[key] or false, caption = caption,
-    tooltip = tooltip or "Read this setting from the circuit network"}
+    tooltip = tooltip or "Override this setting from a circuit network signal"}
   if cfg.signals[key] then
     local b = flow.add{type = "choose-elem-button", name = "aa_tc_sig_" .. key, elem_type = "signal",
-      signal = cfg.signals[key], tooltip = "Signal to read"}
-    b.style.size = 32
+      signal = cfg.signals[key], tooltip = "Circuit signal to read"}
+    b.style.size = 28
   end
   return flow
+end
+
+local function sync_control_states(f, c)
+  if not (f and f.valid and c and c.entity.valid) then return end
+  local body = f.inside and f.inside.body
+  if not body then return end
+  local cfg = c.cfg
+  local r = effective(c, true)
+
+  if f.inside.subheader and f.inside.subheader.aa_tc_now then
+    f.inside.subheader.aa_tc_now.caption = describe(r)
+  end
+
+  -- Enable/disable manual size checkboxes when circuit min-size override is active
+  local sizes_row = body.sizes_row
+  if sizes_row and sizes_row.sizes_left then
+    local manual_sizes = not cfg.use.size
+    for _, s in pairs(SIZES) do
+      local cb = sizes_row.sizes_left["aa_tc_size_" .. s]
+      if cb then
+        cb.enabled = manual_sizes
+        cb.state = (not manual_sizes and r) and (r.sizes[s] or false) or (cfg.sizes[s] or false)
+      end
+    end
+  end
+
+  -- Enable/disable manual chunk slots when wire chunk override is active
+  local types_row = body.types_row
+  if types_row and types_row.types_left then
+    local manual_types = not cfg.use.types
+    for i = 1, CHUNK_SLOTS do
+      local slot = types_row.types_left["aa_tc_chunk_" .. i]
+      if slot then slot.enabled = manual_types end
+    end
+  end
+
+  -- Enable/disable sliders & textfields when circuit signal override is active
+  local limit = max_distance(c.entity.force)
+  local tbl = body.sliders
+  if tbl then
+    for _, s in pairs(SLIDERS) do
+      local max = s.max or limit
+      local manual = not cfg.use[s.key]
+      local val = (not manual and r) and r[s.key] or cfg[s.key]
+      local sl = tbl["aa_tc_" .. s.key]
+      if sl then
+        sl.enabled = manual
+        sl.slider_value = clamp(val, s.min, max)
+      end
+      local tf = tbl["aa_tc_txt_" .. s.key]
+      if tf then
+        tf.enabled = manual
+        -- Don't clobber text while the player is actively typing in this field
+        if not manual or tf.text == "" or tonumber(tf.text) ~= val then
+          tf.text = tostring(val)
+        end
+      end
+    end
+  end
 end
 
 function M.open(p, entity)
@@ -267,45 +340,142 @@ function M.open(p, entity)
   if not c then M.add(entity); c = storage.computers[entity.unit_number] end
   if p.gui.screen.aa_tc then p.gui.screen.aa_tc.destroy() end
   local limit = max_distance(entity.force)
-  local f = p.gui.screen.add{type = "frame", name = "aa_tc", caption = "Targeting computer", direction = "vertical"}
+
+  local f = p.gui.screen.add{type = "frame", name = "aa_tc", direction = "vertical"}
   f.auto_center = true
-  local inner = f.add{type = "frame", name = "inner", style = "inside_shallow_frame_with_padding", direction = "vertical"}
 
-  local sizes = inner.add{type = "flow", direction = "horizontal"}
-  sizes.add{type = "label", caption = "Sizes", style = "bold_label"}.style.width = 60
-  for _, s in pairs(SIZES) do sizes.add{type = "checkbox", name = "aa_tc_size_" .. s, caption = s, state = c.cfg.sizes[s]} end
+  -- Standard Factorio 2.0 titlebar with draggable space and close [X] button
+  local titlebar = f.add{type = "flow", name = "titlebar", direction = "horizontal"}
+  titlebar.drag_target = f
+  titlebar.style.vertical_align = "center"
+  titlebar.add{
+    type = "label",
+    caption = {"entity-name.aa-targeting-computer"},
+    style = "frame_title",
+    ignored_by_interaction = true,
+  }
+  local drag = titlebar.add{type = "empty-widget", style = "draggable_space_header", ignored_by_interaction = true}
+  drag.style.horizontally_stretchable = true
+  drag.style.height = 24
+  drag.style.minimal_width = 40
+  titlebar.add{
+    type = "sprite-button",
+    name = "aa_tc_close",
+    style = "frame_action_button",
+    sprite = "utility/close",
+    hovered_sprite = "utility/close_black",
+    clicked_sprite = "utility/close_black",
+    tooltip = {"gui.close-instruction"},
+  }
 
-  local types = inner.add{type = "flow", direction = "horizontal"}
-  types.style.vertical_align = "center"
-  types.add{type = "label", caption = "Types", style = "bold_label",
-    tooltip = "Asteroid chunks the asteroid breaks into. Leave all empty for every type."}.style.width = 60
-  for i = 1, CHUNK_SLOTS do
-    types.add{type = "choose-elem-button", name = "aa_tc_chunk_" .. i, elem_type = "asteroid-chunk",
-      ["asteroid-chunk"] = c.cfg.chunks[i], tooltip = "Asteroid type to shoot (empty slots = no restriction)"}
+  local inside = f.add{type = "frame", name = "inside", style = "inside_shallow_frame", direction = "vertical"}
+
+  -- Status subheader bar at top of frame
+  local subheader = inside.add{type = "frame", name = "subheader", style = "subheader_frame", direction = "horizontal"}
+  subheader.style.horizontally_stretchable = true
+  subheader.style.vertical_align = "center"
+  subheader.style.padding = {6, 12, 6, 12}
+  local now = subheader.add{type = "label", name = "aa_tc_now", caption = describe(effective(c, true))}
+  now.style.single_line = false
+  now.style.maximal_width = 500
+
+  local body = inside.add{type = "flow", name = "body", direction = "vertical"}
+  body.style.padding = 12
+  body.style.vertical_spacing = 10
+
+  -- Row 1: Sizes + circuit min-size override
+  local sizes_row = body.add{type = "flow", name = "sizes_row", direction = "horizontal"}
+  sizes_row.style.vertical_align = "center"
+  sizes_row.style.horizontally_stretchable = true
+  local sizes_left = sizes_row.add{type = "flow", name = "sizes_left", direction = "horizontal"}
+  sizes_left.style.vertical_align = "center"
+  sizes_left.style.horizontal_spacing = 10
+  local sz_lbl = sizes_left.add{type = "label", caption = "Sizes", style = "bold_label",
+    tooltip = "Which asteroid sizes this computer allows artillery to engage"}
+  sz_lbl.style.width = 76
+  for _, s in pairs(SIZES) do
+    sizes_left.add{type = "checkbox", name = "aa_tc_size_" .. s, caption = SIZE_LABELS[s], state = c.cfg.sizes[s] or false}
   end
+  local sp1 = sizes_row.add{type = "empty-widget"}
+  sp1.style.horizontally_stretchable = true
+  sp1.style.minimal_width = 16
+  signal_toggle(sizes_row, INPUTS[1].key, c.cfg, INPUTS[1].caption, INPUTS[1].tooltip)
 
-  inner.add{type = "line"}
-  local tbl = inner.add{type = "table", name = "sliders", column_count = 4, vertical_centering = true}
+  -- Row 2: Types + circuit chunk-signals override
+  local types_row = body.add{type = "flow", name = "types_row", direction = "horizontal"}
+  types_row.style.vertical_align = "center"
+  types_row.style.horizontally_stretchable = true
+  local types_left = types_row.add{type = "flow", name = "types_left", direction = "horizontal"}
+  types_left.style.vertical_align = "center"
+  types_left.style.horizontal_spacing = 4
+  local ty_lbl = types_left.add{type = "label", caption = "Types", style = "bold_label",
+    tooltip = "Filter by asteroid chunk type. Leave all slots empty to target every asteroid type."}
+  ty_lbl.style.width = 82
+  for i = 1, CHUNK_SLOTS do
+    local b = types_left.add{type = "choose-elem-button", name = "aa_tc_chunk_" .. i, elem_type = "asteroid-chunk",
+      ["asteroid-chunk"] = c.cfg.chunks[i], tooltip = "Asteroid chunk filter (empty = any type)"}
+    b.style.size = 32
+  end
+  local sp2 = types_row.add{type = "empty-widget"}
+  sp2.style.horizontally_stretchable = true
+  sp2.style.minimal_width = 16
+  signal_toggle(types_row, "types", c.cfg, "From wire chunks",
+    "When checked, any asteroid-chunk signal > 0 on the circuit wire replaces the filter slots")
+
+  body.add{type = "line"}
+
+  -- Sector zone table: Label | Slider | Editable Textfield | Unit | Circuit Override
+  local tbl = body.add{type = "table", name = "sliders", column_count = 5, vertical_centering = true}
+  tbl.style.horizontal_spacing = 8
+  tbl.style.vertical_spacing = 6
   for _, s in pairs(SLIDERS) do
     local max = s.max or limit
-    tbl.add{type = "label", caption = s.caption}.style.minimal_width = 110
-    local sl = tbl.add{type = "slider", name = "aa_tc_" .. s.key, minimum_value = s.min, maximum_value = max,
-      value_step = s.step, discrete_slider = true, value = clamp(c.cfg[s.key], s.min, max)}
-    sl.style.width = 200
-    tbl.add{type = "label", name = "aa_tc_" .. s.key .. "_readout", caption = c.cfg[s.key] .. s.unit}.style.minimal_width = 70
-    input_controls(tbl, s.key, c.cfg, "from signal")
+    local exact_max = s.exact_max or limit
+    local val = clamp(c.cfg[s.key], s.exact_min, exact_max)
+
+    local lbl = tbl.add{type = "label", caption = s.caption, style = "bold_label", tooltip = s.tooltip}
+    lbl.style.width = 82
+
+    local sl = tbl.add{
+      type = "slider",
+      name = "aa_tc_" .. s.key,
+      minimum_value = s.min,
+      maximum_value = max,
+      value_step = s.step,
+      discrete_slider = true,
+      value = clamp(val, s.min, max),
+      tooltip = s.tooltip,
+    }
+    sl.style.width = 185
+
+    local tf = tbl.add{
+      type = "textfield",
+      name = "aa_tc_txt_" .. s.key,
+      text = tostring(val),
+      numeric = true,
+      allow_decimal = false,
+      allow_negative = false,
+      style = "slider_value_textfield",
+      tooltip = string.format("Type an exact value (%d–%d %s)", s.exact_min, exact_max, s.unit),
+    }
+    tf.style.width = 56
+
+    local u = tbl.add{type = "label", caption = s.unit}
+    u.style.minimal_width = 32
+
+    signal_toggle(tbl, s.key, c.cfg, "Signal", "Override " .. s.caption:lower() .. " from a circuit network signal")
   end
 
-  inner.add{type = "line"}
-  inner.add{type = "label", caption = "Circuit network", style = "bold_label"}
-  for _, s in pairs(INPUTS) do input_controls(inner, s.key, c.cfg, s.caption, s.tooltip) end
-  input_controls(inner, "types", c.cfg, "Asteroid types from chunk signals",
-    "Any asteroid chunk signal > 0 on the wire replaces the type slots above")
+  body.add{type = "line"}
 
-  inner.add{type = "line"}
-  local now = inner.add{type = "label", name = "aa_tc_now", caption = describe(effective(c, true))}
-  now.style.single_line = false
-  now.style.maximal_width = 480
+  -- Bottom row: Circuit switch-off condition
+  local off_row = body.add{type = "flow", name = "off_row", direction = "horizontal"}
+  off_row.style.vertical_align = "center"
+  local off_lbl = off_row.add{type = "label", caption = "Control", style = "bold_label"}
+  off_lbl.style.width = 86
+  signal_toggle(off_row, INPUTS[2].key, c.cfg, INPUTS[2].caption, INPUTS[2].tooltip)
+
+  sync_control_states(f, c)
   p.opened = f
   storage.open_computer[p.index] = entity.unit_number
   M.sync_zones()
@@ -360,7 +530,7 @@ function M.refresh_open()
   for _, p in pairs(game.connected_players) do
     local c = open_entry(p)
     local f = p.gui.screen.aa_tc
-    if c and f then f.inner.aa_tc_now.caption = describe(effective(c, true)) end
+    if c and f then sync_control_states(f, c) end
   end
   M.sync_zones()
 end
@@ -372,6 +542,15 @@ end)
 script.on_event(defines.events.on_gui_closed, function(e)
   if e.element and e.element.valid and e.element.name == "aa_tc" then
     e.element.destroy()
+    storage.open_computer[e.player_index] = nil
+    M.sync_zones()
+  end
+end)
+
+script.on_event(defines.events.on_gui_click, function(e)
+  if e.element and e.element.valid and e.element.name == "aa_tc_close" then
+    local p = game.get_player(e.player_index)
+    if p.gui.screen.aa_tc then p.gui.screen.aa_tc.destroy() end
     storage.open_computer[e.player_index] = nil
     M.sync_zones()
   end
@@ -396,13 +575,49 @@ script.on_event(defines.events.on_gui_value_changed, function(e)
   if not c then return end
   for _, s in pairs(SLIDERS) do
     if e.element.name == "aa_tc_" .. s.key then
-      c.cfg[s.key] = e.element.slider_value
-      e.element.parent["aa_tc_" .. s.key .. "_readout"].caption = c.cfg[s.key] .. s.unit
+      c.cfg[s.key] = math.floor(e.element.slider_value + 0.5)
+      local tf = e.element.parent["aa_tc_txt_" .. s.key]
+      if tf then tf.text = tostring(c.cfg[s.key]) end
     end
   end
   save_tags(c)
   M.refresh_open()
 end)
+
+local function on_textfield_edit(e, confirm)
+  local p = game.get_player(e.player_index)
+  local c = open_entry(p)
+  if not c or not (e.element and e.element.valid) then return end
+  local key = e.element.name:match("^aa_tc_txt_(%a+)$")
+  if not key then return end
+  local limit = max_distance(c.entity.force)
+  for _, s in pairs(SLIDERS) do
+    if s.key == key then
+      local num = tonumber(e.element.text)
+      local exact_max = s.exact_max or limit
+      local slider_max = s.max or limit
+      if num then
+        local v = clamp(math.floor(num), s.exact_min, exact_max)
+        c.cfg[key] = v
+        local sl = e.element.parent["aa_tc_" .. key]
+        if sl then sl.slider_value = clamp(v, s.min, slider_max) end
+        if confirm then e.element.text = tostring(v) end
+        save_tags(c)
+        M.sync_zones()
+        local f = p.gui.screen.aa_tc
+        if f and f.inside and f.inside.subheader and f.inside.subheader.aa_tc_now then
+          f.inside.subheader.aa_tc_now.caption = describe(effective(c, true))
+        end
+      elseif confirm then
+        e.element.text = tostring(c.cfg[key])
+      end
+      return
+    end
+  end
+end
+
+script.on_event(defines.events.on_gui_text_changed, function(e) on_textfield_edit(e, false) end)
+script.on_event(defines.events.on_gui_confirmed, function(e) on_textfield_edit(e, true) end)
 
 script.on_event(defines.events.on_gui_elem_changed, function(e)
   local p = game.get_player(e.player_index)

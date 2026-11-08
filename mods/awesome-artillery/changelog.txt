@@ -4,7 +4,7 @@ Date: 2026-11-08
   Features:
     - Space platform artillery automatically engages incoming asteroids with lead prediction, overkill avoidance, and hull splash safety.
     - Targeting computer (5 MW, space-only): filter targets by asteroid size, chunk type, and directional sector zone, with red/green circuit network overrides and ghost configuration support.
-    - Flash-hardened steel and steel artillery shell (200 physical + 800 explosion): space-manufacturable shell unlocked by destroying 500 medium+ metallic, carbonic, and oxide asteroids with artillery and researching Steel artillery shell (2k packs).
-    - Promethium artillery shell (4000 physical + 1000 explosion): heavy armor-piercing shell unlocked by destroying a promethium asteroid and researching Promethium artillery shell (4k packs) to pierce huge asteroids at base damage research.
+    - Flash-hardened steel and steel artillery shell (200 physical + 800 explosion): space-manufacturable shell unlocked by destroying 500 medium, big, or huge metallic, carbonic, or oxide asteroids with artillery and researching Steel artillery shell (2k packs).
+    - Promethium artillery shell (4000 physical + 1000 explosion): heavy armor-piercing shell unlocked by destroying a medium, big, or huge promethium asteroid and researching Promethium artillery shell (4k packs) to pierce huge asteroids at base damage research.
     - Artillery turret rotation speed research (10 levels, +30% turning speed per level) and infinite Artillery shell velocity research (+20% projectile flight speed per level).
     - Custom icons, projectile sprites, 3x3 targeting computer entity graphics, Factoriopedia simulations, and Tips & Tricks entries.

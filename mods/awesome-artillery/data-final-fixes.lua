@@ -254,7 +254,7 @@ do
     icon = gfx .. "technology/asteroid-ballistics.png",
     icon_size = 256,
     factoriopedia_description = {"factoriopedia-description.aa-asteroid-ballistics"},
-    prerequisites = {"aa-targeting-computer", "advanced-asteroid-processing"},
+    prerequisites = {"aa-targeting-computer"},
     effects = {
       {type = "nothing", effect_description = {"technology-effect.aa-asteroid-ballistics"}},
     },
@@ -267,7 +267,7 @@ do
     icon = gfx .. "technology/steel-artillery-shell.png",
     icon_size = 256,
     factoriopedia_description = {"factoriopedia-description.aa-steel-artillery-shell"},
-    prerequisites = {"aa-asteroid-ballistics"},
+    prerequisites = {"aa-asteroid-ballistics", "advanced-asteroid-processing"},
     effects = {
       {type = "unlock-recipe", recipe = "aa-flash-hardened-steel"},
       {type = "unlock-recipe", recipe = "aa-steel-artillery-shell"},
