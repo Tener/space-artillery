@@ -413,17 +413,22 @@ do
         return e
       end
 
-      for _, x in pairs{-10.5, -7.5, 7.5, 10.5} do make("solar-panel", {x, -1.5}) end
-      for _, x in pairs{-6, 6} do make("substation", {x, -6}) end
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
 
       local t_steel = make("artillery-turret", {-6.5, -10.5})
       assert(t_steel, "t_steel nil")
       t_steel.insert{name = "awe-art-steel-artillery-shell", count = 15}
+      local chest_steel = make("requester-chest", {-6.5, -7.5})
+      if chest_steel then chest_steel.insert{name = "awe-art-steel-artillery-shell", count = 30} end
+      make("fast-inserter", {-6.5, -8.5}, defines.direction.south)
+
       local t_prom = make("artillery-turret", {6.5, -10.5})
       assert(t_prom, "t_prom nil")
       t_prom.insert{name = "awe-art-promethium-artillery-shell", count = 15}
+      local chest_prom = make("requester-chest", {6.5, -7.5})
+      if chest_prom then chest_prom.insert{name = "awe-art-promethium-artillery-shell", count = 30} end
+      make("fast-inserter", {6.5, -8.5}, defines.direction.south)
 
       for _, pos in pairs{{-3, -15}, {3, -15}} do
         local g = make("gun-turret", pos)
@@ -448,9 +453,11 @@ do
       local configured = false
       local wave = {
         {"medium-metallic-asteroid", -14, -75, 0.01, 0.035},
+        {"small-metallic-asteroid", 2, -72, 0.0, 0.04},
         {"medium-carbonic-asteroid", 12, -78, -0.01, 0.035},
         {"big-oxide-asteroid", 0, -82, 0.0, 0.03},
         {"huge-promethium-asteroid", 8, -85, -0.005, 0.025},
+        {"small-oxide-asteroid", -4, -74, 0.002, 0.04},
         {"medium-metallic-asteroid", 18, -76, -0.02, 0.035},
         {"big-metallic-asteroid", -8, -80, 0.01, 0.03},
       }
@@ -463,13 +470,15 @@ do
           remote.call("awesome-artillery", "set_debug", false)
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
-              sizes = {small = true, medium = true, big = true, huge = true},
+              sizes = {small = false, medium = true, big = true, huge = true},
               dir = 0, arc = 120, near = 30, far = 100,
             })
           end
         end
         if t_steel and t_steel.valid then t_steel.insert{name = "awe-art-steel-artillery-shell", count = 5} end
         if t_prom and t_prom.valid then t_prom.insert{name = "awe-art-promethium-artillery-shell", count = 5} end
+        if chest_steel and chest_steel.valid then chest_steel.insert{name = "awe-art-steel-artillery-shell", count = 5} end
+        if chest_prom and chest_prom.valid then chest_prom.insert{name = "awe-art-promethium-artillery-shell", count = 5} end
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
           if a.position.y > -20 or a.position.y < -75 or math.abs(a.position.x) > 45 then a.destroy() end
         end
@@ -522,14 +531,12 @@ do
         return e
       end
 
-      make("substation", {-8, -8})
-      make("substation", {8, -8})
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
 
       local a_fhs = make("foundry", {-3.5, -8.5}, defines.direction.north, "awe-art-flash-hardened-steel")
       local a_steel = make("foundry", {2.5, -8.5}, defines.direction.north, "awe-art-steel-artillery-shell")
-      make("fast-inserter", {-0.5, -8.5}, defines.direction.east)
+      make("fast-inserter", {-0.5, -8.5}, defines.direction.west)
 
       local pipe1 = make("pipe", {-4.5, -6.5})
       local pipe2 = make("pipe", {-4.5, -5.5})
@@ -603,7 +610,6 @@ do
         return e
       end
 
-      for _, pos in pairs{{-11, -8}, {11, -8}, {-11, 4}, {11, 4}} do make("substation", pos) end
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e8; eei.electric_buffer_size = 1e8 end
 
@@ -620,7 +626,8 @@ do
           lp.get_section(1).set_slot(1, {value = "artillery-shell", min = 30})
         end
       end
-      make("fast-inserter", {-7.5, -10.5}, defines.direction.north)
+      -- Inserter picks up from South (chest at -9.5), drops into North (turret at -12.5)
+      make("fast-inserter", {-7.5, -10.5}, defines.direction.south)
 
       -- Right cannon: Steel artillery shells (cast on platform)
       local turret_steel = make("artillery-turret", {7.5, -12.5})
@@ -630,20 +637,22 @@ do
       -- Shell Foundry (casts awe-art-steel-artillery-shell)
       local a_sh = make("foundry", {7.5, -6.5}, defines.direction.north, "awe-art-steel-artillery-shell")
       assert(a_sh, "a_sh nil")
-      make("fast-inserter", {7.5, -9.5}, defines.direction.north)
+      -- Inserter picks up from South (foundry at -6.5), drops into North (turret at -12.5)
+      make("fast-inserter", {7.5, -10.5}, defines.direction.south)
 
       local chest_sh = make("requester-chest", {11.5, -6.5})
       if chest_sh then
         chest_sh.insert{name = "explosives", count = 100}
         chest_sh.insert{name = "radar", count = 20}
       end
-      make("fast-inserter", {10.5, -6.5}, defines.direction.west)
+      -- Inserter picks up from East (chest at 11.5), drops into West (foundry at 7.5)
+      make("fast-inserter", {10.5, -6.5}, defines.direction.east)
 
       -- FHS Foundry (casts awe-art-flash-hardened-steel from molten iron + asteroid carbon/calcite/ice)
       local a_fhs = make("foundry", {1.5, -6.5}, defines.direction.north, "awe-art-flash-hardened-steel")
       assert(a_fhs, "a_fhs nil")
-      -- Inserter moving FHS plates from a_fhs into a_sh
-      make("fast-inserter", {4.5, -6.5}, defines.direction.east)
+      -- Inserter picks up from West (FHS foundry at 1.5), drops into East (Shell foundry at 7.5)
+      make("fast-inserter", {4.5, -6.5}, defines.direction.west)
 
       local chest_fhs = make("requester-chest", {1.5, -3.0})
       if chest_fhs then
@@ -651,7 +660,8 @@ do
         chest_fhs.insert{name = "calcite", count = 50}
         chest_fhs.insert{name = "ice", count = 50}
       end
-      make("fast-inserter", {1.5, -4.0}, defines.direction.north)
+      -- Inserter picks up from South (chest at -3.0), drops into North (foundry at -6.5)
+      make("fast-inserter", {1.5, -4.0}, defines.direction.south)
 
       -- Molten iron pipe supply into a_fhs fluid port at x=0.5, y=-4.5
       local pipe_fhs1 = make("pipe", {0.5, -4.5})
@@ -676,7 +686,7 @@ do
           remote.call("awesome-artillery", "set_debug", false)
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
-              sizes = {small = true, medium = true, big = true, huge = true},
+              sizes = {small = false, medium = true, big = true, huge = true},
               dir = 0, arc = 120, near = 30, far = 100,
             })
           end
@@ -701,8 +711,10 @@ do
 
       local wave = {
         {"medium-metallic-asteroid", 8, -75, -0.005, 0.035},
+        {"small-metallic-asteroid", 2, -72, 0.0, 0.04},
         {"big-carbonic-asteroid", -10, -80, 0.01, 0.035},
         {"huge-metallic-asteroid", 4, -85, -0.002, 0.03},
+        {"small-oxide-asteroid", -3, -74, 0.002, 0.04},
         {"medium-oxide-asteroid", -6, -78, 0.005, 0.035},
         {"big-metallic-asteroid", 12, -82, -0.008, 0.035},
       }
@@ -770,14 +782,24 @@ do
         return e
       end
 
-      for _, pos in pairs{{-8, -7}, {8, -7}, {-8, 5}, {8, 5}} do make("substation", pos) end
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e8; eei.electric_buffer_size = 1e8 end
 
       local a_fhs = make("foundry", {1.5, -6.5}, defines.direction.north, "awe-art-flash-hardened-steel")
       local a_prom = make("foundry", {7.5, -6.5}, defines.direction.north, "awe-art-promethium-artillery-shell")
-      make("fast-inserter", {4.5, -6.5}, defines.direction.east)
-      make("fast-inserter", {7.5, -9.5}, defines.direction.north)
+      -- Inserter picks up from West (FHS foundry at 1.5), drops into East (Promethium foundry at 7.5)
+      make("fast-inserter", {4.5, -6.5}, defines.direction.west)
+      -- Inserter picks up from South (Promethium foundry at -6.5), drops into North (turret at -12.5)
+      make("fast-inserter", {7.5, -10.5}, defines.direction.south)
+
+      local chest_fhs = make("requester-chest", {1.5, -3.0})
+      if chest_fhs then
+        chest_fhs.insert{name = "carbon", count = 50}
+        chest_fhs.insert{name = "calcite", count = 50}
+        chest_fhs.insert{name = "ice", count = 50}
+      end
+      -- Inserter picks up from South (chest at -3.0), drops into North (foundry at -6.5)
+      make("fast-inserter", {1.5, -4.0}, defines.direction.south)
 
       local chest_prom = make("requester-chest", {11.5, -6.5})
       if chest_prom then
@@ -785,7 +807,8 @@ do
         chest_prom.insert{name = "explosives", count = 100}
         chest_prom.insert{name = "radar", count = 20}
       end
-      make("fast-inserter", {10.5, -6.5}, defines.direction.west)
+      -- Inserter picks up from East (chest at 11.5), drops into West (foundry at 7.5)
+      make("fast-inserter", {10.5, -6.5}, defines.direction.east)
 
       local pipe1 = make("pipe", {0.5, -4.5})
       local pipe2 = make("pipe", {0.5, -3.5})
@@ -797,6 +820,14 @@ do
       for _, t in pairs(turrets) do
         if t and t.valid then t.insert{name = "awe-art-promethium-artillery-shell", count = 15} end
       end
+
+      local chest_left = make("requester-chest", {-7.5, -9.5})
+      if chest_left then
+        chest_left.insert{name = "awe-art-promethium-artillery-shell", count = 30}
+      end
+      -- Inserter picks up from South (chest at -9.5), drops into North (turret at -12.5)
+      make("fast-inserter", {-7.5, -10.5}, defines.direction.south)
+
       local comp = make("awe-art-targeting-computer", {0, -12.5})
       if comp and turrets[1] and turrets[2] then
         local red = defines.wire_connector_id.circuit_red
@@ -810,8 +841,10 @@ do
       local configured = false
       local wave = {
         {"huge-promethium-asteroid", -8, -80, 0.005, 0.035},
+        {"small-metallic-asteroid", 2, -72, 0.0, 0.04},
         {"huge-metallic-asteroid", 10, -85, -0.005, 0.035},
         {"big-promethium-asteroid", 0, -78, 0.0, 0.04},
+        {"small-oxide-asteroid", -4, -75, 0.002, 0.04},
         {"huge-oxide-asteroid", -12, -82, 0.008, 0.035},
       }
       local idx = 0
@@ -823,7 +856,7 @@ do
           remote.call("awesome-artillery", "set_debug", false)
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
-              sizes = {small = true, medium = true, big = true, huge = true},
+              sizes = {small = false, medium = true, big = true, huge = true},
               dir = 0, arc = 120, near = 30, far = 100,
             })
           end
