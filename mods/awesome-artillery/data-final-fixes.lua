@@ -434,17 +434,25 @@ do
       local cc = make("constant-combinator", {3.5, -10.5})
       if cc and comp then
         cc.get_wire_connector(defines.wire_connector_id.circuit_red, true)
-          .connect_to(comp.get_wire_connector(defines.wire_connector_id.circuit_red, true))
+          .connect_to(comp.get_wire_connector(defines.wire_connector_id.circuit_red, true), false)
+      end
+      if comp and t_steel and t_prom then
+        local red = defines.wire_connector_id.circuit_red
+        local conn_c = comp.get_wire_connector(red, true)
+        local conn_s = t_steel.get_wire_connector(red, true)
+        local conn_p = t_prom.get_wire_connector(red, true)
+        if conn_c and conn_s then conn_c.connect_to(conn_s, false) end
+        if conn_c and conn_p then conn_c.connect_to(conn_p, false) end
       end
 
       local configured = false
       local wave = {
-        {"medium-metallic-asteroid", -14, -56, 0.01, 0.045},
-        {"medium-carbonic-asteroid", 12, -58, -0.01, 0.045},
-        {"big-oxide-asteroid", 0, -60, 0.0, 0.035},
-        {"huge-promethium-asteroid", 8, -62, -0.005, 0.03},
-        {"medium-metallic-asteroid", 18, -55, -0.02, 0.045},
-        {"big-metallic-asteroid", -8, -60, 0.01, 0.035},
+        {"medium-metallic-asteroid", -14, -75, 0.01, 0.035},
+        {"medium-carbonic-asteroid", 12, -78, -0.01, 0.035},
+        {"big-oxide-asteroid", 0, -82, 0.0, 0.03},
+        {"huge-promethium-asteroid", 8, -85, -0.005, 0.025},
+        {"medium-metallic-asteroid", 18, -76, -0.02, 0.035},
+        {"big-metallic-asteroid", -8, -80, 0.01, 0.03},
       }
       local idx = 0
       local function spawn_next()
@@ -456,7 +464,7 @@ do
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = true, medium = true, big = true, huge = true},
-              dir = 0, arc = 120, near = 30, far = 65,
+              dir = 0, arc = 120, near = 30, far = 100,
             })
           end
         end
@@ -520,8 +528,11 @@ do
       if eei then eei.power_production = 1e7; eei.electric_buffer_size = 1e7 end
 
       local a_fhs = make("foundry", {-3.5, -8.5}, defines.direction.north, "awe-art-flash-hardened-steel")
-      make("fast-inserter", {-0.5, -8.5}, defines.direction.west)
       local a_steel = make("foundry", {2.5, -8.5}, defines.direction.north, "awe-art-steel-artillery-shell")
+      make("fast-inserter", {-0.5, -8.5}, defines.direction.east)
+
+      local pipe1 = make("pipe", {-4.5, -6.5})
+      local pipe2 = make("pipe", {-4.5, -5.5})
 
       local function stock()
         if a_fhs and a_fhs.valid then
@@ -530,6 +541,7 @@ do
           a_fhs.insert{name = "calcite", count = 10}
           a_fhs.insert{name = "ice", count = 10}
         end
+        if pipe1 and pipe1.valid then pipe1.insert_fluid{name = "molten-iron", amount = 100} end
         if a_steel and a_steel.valid then
           a_steel.insert{name = "awe-art-flash-hardened-steel", count = 6}
           a_steel.insert{name = "explosives", count = 20}
@@ -556,8 +568,7 @@ do
       force.set_gun_speed_modifier("artillery-shell", 1.2)
       if force.technologies["awe-art-artillery-shell-velocity-1"] then force.technologies["awe-art-artillery-shell-velocity-1"].level = 5 end
       for _, r in pairs{"advanced-metallic-asteroid-crushing", "advanced-carbonic-asteroid-crushing",
-        "advanced-oxide-asteroid-crushing", "iron-ore-melting", "ice-melting", "coal-synthesis", "explosives",
-        "awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell"} do
+        "advanced-oxide-asteroid-crushing", "awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell"} do
         if force.recipes[r] then force.recipes[r].enabled = true end
       end
 
@@ -569,16 +580,16 @@ do
       s.force_generate_chunk_requests()
 
       local tiles = {}
-      for y = -18, 10 do
-        local hw = y < -12 and math.floor((y + 20) * 1.6) or 14
+      for y = -20, 8 do
+        local hw = y < -12 and math.floor((y + 22) * 1.5) or 15
         for x = -hw, hw do tiles[#tiles + 1] = {name = "space-platform-foundation", position = {x, y}} end
       end
       s.set_tiles(tiles)
 
       player.teleport({0, -10}, s)
       game.simulation.camera_player = player
-      game.simulation.camera_position = {0, -25}
-      game.simulation.camera_zoom = 0.46
+      game.simulation.camera_position = {0, -32}
+      game.simulation.camera_zoom = 0.44
       game.simulation.camera_alt_info = true
       game.simulation.hide_cursor = true
 
@@ -592,45 +603,69 @@ do
         return e
       end
 
-      for _, pos in pairs{{-6, -5}, {9, -5}, {-6, 5}, {9, 5}} do make("substation", pos) end
-      for _, x in pairs{-11.5, 11.5} do make("solar-panel", {x, -1.5}); make("solar-panel", {x, 1.5}) end
-      local eei = make("electric-energy-interface", {0, 8})
+      for _, pos in pairs{{-11, -8}, {11, -8}, {-11, 4}, {11, 4}} do make("substation", pos) end
+      local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e8; eei.electric_buffer_size = 1e8 end
 
-      make("crusher", {-10, -2.5}, defines.direction.south, "advanced-metallic-asteroid-crushing")
-      make("crusher", {-10, 2.5}, defines.direction.south, "advanced-carbonic-asteroid-crushing")
-      make("crusher", {8, 2.5}, defines.direction.south, "advanced-oxide-asteroid-crushing")
-      make("chemical-plant", {-6.5, 1.5}, defines.direction.east, "coal-synthesis")
-      make("chemical-plant", {-6.5, 5.5}, defines.direction.east, "explosives")
+      -- Left cannon: Tungsten artillery shells (imported)
+      local turret_tungsten = make("artillery-turret", {-7.5, -12.5})
+      assert(turret_tungsten, "turret_tungsten nil")
+      turret_tungsten.insert{name = "artillery-shell", count = 15}
 
-      local a_melt = make("foundry", {-7.5, -7.5}, defines.direction.east, "iron-ore-melting")
-      local a_fhs = make("foundry", {-1.5, -7.5}, defines.direction.north, "awe-art-flash-hardened-steel")
-      local a_sh = make("foundry", {4.5, -7.5}, defines.direction.north, "awe-art-steel-artillery-shell")
-      assert(a_melt and a_fhs and a_sh, "foundry nil in sim_steel_shell")
-      make("pipe", {-4.5, -8.5})
-      make("fast-inserter", {1.5, -7.5}, defines.direction.west)
-      make("fast-inserter", {4.5, -10.5}, defines.direction.south)
-
-      local turret_steel = make("artillery-turret", {4.5, -12.5})
-      local turret_tungsten = make("artillery-turret", {-6.5, -12.5})
-      assert(turret_steel and turret_tungsten, "turret nil in sim_steel_shell")
-      turret_steel.insert{name = "awe-art-steel-artillery-shell", count = 10}
-      turret_tungsten.insert{name = "artillery-shell", count = 10}
-
-      local chest_tungsten = make("requester-chest", {-6.5, -9.5})
+      local chest_tungsten = make("requester-chest", {-7.5, -9.5})
       if chest_tungsten then
-        chest_tungsten.insert{name = "artillery-shell", count = 20}
+        chest_tungsten.insert{name = "artillery-shell", count = 30}
         local lp = chest_tungsten.get_requester_point()
         if lp and lp.sections_count > 0 then
-          lp.get_section(1).set_slot(1, {value = "artillery-shell", min = 20})
+          lp.get_section(1).set_slot(1, {value = "artillery-shell", min = 30})
         end
       end
-      make("fast-inserter", {-6.5, -10.5}, defines.direction.south)
+      make("fast-inserter", {-7.5, -10.5}, defines.direction.north)
 
-      local comp = make("awe-art-targeting-computer", {-1.0, -12.5})
-      for _, x in pairs{-9, 0, 9} do
-        local g = make("gun-turret", {x, -16})
-        if g then g.insert{name = "piercing-rounds-magazine", count = 50} end
+      -- Right cannon: Steel artillery shells (cast on platform)
+      local turret_steel = make("artillery-turret", {7.5, -12.5})
+      assert(turret_steel, "turret_steel nil")
+      turret_steel.insert{name = "awe-art-steel-artillery-shell", count = 15}
+
+      -- Shell Foundry (casts awe-art-steel-artillery-shell)
+      local a_sh = make("foundry", {7.5, -6.5}, defines.direction.north, "awe-art-steel-artillery-shell")
+      assert(a_sh, "a_sh nil")
+      make("fast-inserter", {7.5, -9.5}, defines.direction.north)
+
+      local chest_sh = make("requester-chest", {11.5, -6.5})
+      if chest_sh then
+        chest_sh.insert{name = "explosives", count = 100}
+        chest_sh.insert{name = "radar", count = 20}
+      end
+      make("fast-inserter", {10.5, -6.5}, defines.direction.west)
+
+      -- FHS Foundry (casts awe-art-flash-hardened-steel from molten iron + asteroid carbon/calcite/ice)
+      local a_fhs = make("foundry", {1.5, -6.5}, defines.direction.north, "awe-art-flash-hardened-steel")
+      assert(a_fhs, "a_fhs nil")
+      -- Inserter moving FHS plates from a_fhs into a_sh
+      make("fast-inserter", {4.5, -6.5}, defines.direction.east)
+
+      local chest_fhs = make("requester-chest", {1.5, -3.0})
+      if chest_fhs then
+        chest_fhs.insert{name = "carbon", count = 50}
+        chest_fhs.insert{name = "calcite", count = 50}
+        chest_fhs.insert{name = "ice", count = 50}
+      end
+      make("fast-inserter", {1.5, -4.0}, defines.direction.north)
+
+      -- Molten iron pipe supply into a_fhs fluid port at x=0.5, y=-4.5
+      local pipe_fhs1 = make("pipe", {0.5, -4.5})
+      local pipe_fhs2 = make("pipe", {0.5, -3.5})
+
+      -- Targeting Computer between cannons, wired to both
+      local comp = make("awe-art-targeting-computer", {0, -12.5})
+      if comp and turret_steel and turret_tungsten then
+        local red = defines.wire_connector_id.circuit_red
+        local conn_c = comp.get_wire_connector(red, true)
+        local conn_s = turret_steel.get_wire_connector(red, true)
+        local conn_t = turret_tungsten.get_wire_connector(red, true)
+        if conn_c and conn_s then conn_c.connect_to(conn_s, false) end
+        if conn_c and conn_t then conn_c.connect_to(conn_t, false) end
       end
 
       local configured = false
@@ -642,13 +677,9 @@ do
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = true, medium = true, big = true, huge = true},
-              dir = 0, arc = 120, near = 30, far = 65,
+              dir = 0, arc = 120, near = 30, far = 100,
             })
           end
-        end
-        if a_melt and a_melt.valid then
-          a_melt.insert{name = "iron-ore", count = 20}
-          a_melt.insert{name = "calcite", count = 5}
         end
         if a_fhs and a_fhs.valid then
           a_fhs.insert_fluid{name = "molten-iron", amount = 500}
@@ -656,6 +687,7 @@ do
           a_fhs.insert{name = "calcite", count = 10}
           a_fhs.insert{name = "ice", count = 10}
         end
+        if pipe_fhs1 and pipe_fhs1.valid then pipe_fhs1.insert_fluid{name = "molten-iron", amount = 100} end
         if a_sh and a_sh.valid then
           a_sh.insert{name = "awe-art-flash-hardened-steel", count = 6}
           a_sh.insert{name = "explosives", count = 20}
@@ -668,17 +700,17 @@ do
       stock_craft()
 
       local wave = {
-        {"medium-metallic-asteroid", 6, -48, -0.005, 0.04},
-        {"big-oxide-asteroid", -8, -50, 0.01, 0.035},
-        {"medium-carbonic-asteroid", 10, -47, -0.01, 0.04},
-        {"huge-metallic-asteroid", -4, -52, 0.005, 0.03},
-        {"big-carbonic-asteroid", 2, -49, 0.0, 0.035},
+        {"medium-metallic-asteroid", 8, -75, -0.005, 0.035},
+        {"big-carbonic-asteroid", -10, -80, 0.01, 0.035},
+        {"huge-metallic-asteroid", 4, -85, -0.002, 0.03},
+        {"medium-oxide-asteroid", -6, -78, 0.005, 0.035},
+        {"big-metallic-asteroid", 12, -82, -0.008, 0.035},
       }
       local idx = 0
       local function step()
         stock_craft()
         for _, a in pairs(s.find_entities_filtered{type = "asteroid"}) do
-          if a.position.y > -20 or a.position.y < -70 or math.abs(a.position.x) > 40 then a.destroy() end
+          if a.position.y > -22 or a.position.y < -110 or math.abs(a.position.x) > 40 then a.destroy() end
         end
         idx = (idx % #wave) + 1
         local w = wave[idx]
@@ -742,25 +774,45 @@ do
       local eei = make("electric-energy-interface", {0, 6})
       if eei then eei.power_production = 1e8; eei.electric_buffer_size = 1e8 end
 
-      local a_fhs = make("foundry", {-3.5, -7.5}, defines.direction.north, "awe-art-flash-hardened-steel")
-      local a_prom = make("foundry", {2.5, -7.5}, defines.direction.north, "awe-art-promethium-artillery-shell")
-      make("fast-inserter", {-0.5, -7.5}, defines.direction.west)
+      local a_fhs = make("foundry", {1.5, -6.5}, defines.direction.north, "awe-art-flash-hardened-steel")
+      local a_prom = make("foundry", {7.5, -6.5}, defines.direction.north, "awe-art-promethium-artillery-shell")
+      make("fast-inserter", {4.5, -6.5}, defines.direction.east)
+      make("fast-inserter", {7.5, -9.5}, defines.direction.north)
+
+      local chest_prom = make("requester-chest", {11.5, -6.5})
+      if chest_prom then
+        chest_prom.insert{name = "promethium-asteroid-chunk", count = 50}
+        chest_prom.insert{name = "explosives", count = 100}
+        chest_prom.insert{name = "radar", count = 20}
+      end
+      make("fast-inserter", {10.5, -6.5}, defines.direction.west)
+
+      local pipe1 = make("pipe", {0.5, -4.5})
+      local pipe2 = make("pipe", {0.5, -3.5})
 
       local turrets = {
-        make("artillery-turret", {-6.5, -12.5}),
-        make("artillery-turret", {6.5, -12.5}),
+        make("artillery-turret", {-7.5, -12.5}),
+        make("artillery-turret", {7.5, -12.5}),
       }
       for _, t in pairs(turrets) do
         if t and t.valid then t.insert{name = "awe-art-promethium-artillery-shell", count = 15} end
       end
       local comp = make("awe-art-targeting-computer", {0, -12.5})
+      if comp and turrets[1] and turrets[2] then
+        local red = defines.wire_connector_id.circuit_red
+        local conn_c = comp.get_wire_connector(red, true)
+        local conn_1 = turrets[1].get_wire_connector(red, true)
+        local conn_2 = turrets[2].get_wire_connector(red, true)
+        if conn_c and conn_1 then conn_c.connect_to(conn_1, false) end
+        if conn_c and conn_2 then conn_c.connect_to(conn_2, false) end
+      end
 
       local configured = false
       local wave = {
-        {"huge-promethium-asteroid", -8, -56, 0.005, 0.03},
-        {"huge-metallic-asteroid", 10, -58, -0.005, 0.03},
-        {"big-promethium-asteroid", 0, -54, 0.0, 0.04},
-        {"huge-oxide-asteroid", -12, -56, 0.01, 0.03},
+        {"huge-promethium-asteroid", -8, -80, 0.005, 0.035},
+        {"huge-metallic-asteroid", 10, -85, -0.005, 0.035},
+        {"big-promethium-asteroid", 0, -78, 0.0, 0.04},
+        {"huge-oxide-asteroid", -12, -82, 0.008, 0.035},
       }
       local idx = 0
       local function step()
@@ -772,7 +824,7 @@ do
           if comp and comp.valid then
             remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
               sizes = {small = true, medium = true, big = true, huge = true},
-              dir = 0, arc = 120, near = 30, far = 65,
+              dir = 0, arc = 120, near = 30, far = 100,
             })
           end
         end
@@ -782,6 +834,7 @@ do
           a_fhs.insert{name = "calcite", count = 10}
           a_fhs.insert{name = "ice", count = 10}
         end
+        if pipe1 and pipe1.valid then pipe1.insert_fluid{name = "molten-iron", amount = 100} end
         if a_prom and a_prom.valid then
           a_prom.insert{name = "awe-art-flash-hardened-steel", count = 6}
           a_prom.insert{name = "promethium-asteroid-chunk", count = 6}
