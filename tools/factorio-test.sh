@@ -87,11 +87,19 @@ elif (( client )); then
   cmd+=(--load-scenario "$scenario")
   "${cmd[@]}" > "$log" 2>&1 &
   pid=$!
-  sleep "$secs"
+  for (( i = 0; i < secs; i++ )); do
+    if ! kill -0 "$pid" 2>/dev/null; then break; fi
+    if grep -q "CAPTURE_COMPLETE" "$log" 2>/dev/null; then
+      echo "factorio-test: CAPTURE_COMPLETE received"
+      sleep 1
+      break
+    fi
+    sleep 1
+  done
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
   awk '/^\[/ || /Error/ { print }' "$log"
-  echo "factorio-test: client closed after ${secs}s; screenshots:"
+  echo "factorio-test: client closed; screenshots:"
   ls "$work/$mode/script-output"
   exit 0
 elif (( graphics )); then

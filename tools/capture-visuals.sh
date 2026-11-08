@@ -11,8 +11,8 @@ DOCS_DIR="$ROOT/docs"
 mkdir -p "$DOCS_DIR"
 rm -f "$OUTPUT_DIR"/showcase-*.png "$OUTPUT_DIR"/thumb-*.png
 
-echo "==> Running showcase scenario for 12 seconds..."
-"$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" awesome-artillery/showcase 12
+echo "==> Running showcase scenario (waiting for capture to complete, up to 60s)..."
+"$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" awesome-artillery/showcase 60
 
 echo "==> Collecting visuals..."
 if [[ -f "$OUTPUT_DIR/showcase-16x9.png" ]]; then
