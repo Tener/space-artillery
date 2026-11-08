@@ -1,8 +1,12 @@
 # Awesome Artillery
 
+![Awesome Artillery exploration platform in deep space](https://raw.githubusercontent.com/Tener/awesome-artillery/main/docs/showcase-hero.gif)
+
 Teaches **space platform artillery to shoot incoming asteroids**, guided by an orbital **targeting computer**, with **space-manufacturable steel and promethium artillery shells** and dedicated **rotation speed & shell velocity research**.
 
 ## Asteroid defense
+
+![Long-range kinetic interception](https://raw.githubusercontent.com/Tener/awesome-artillery/main/docs/showcase-combat.gif)
 
 Place artillery turrets and a **targeting computer** (`5 MW`) on your space platform. Artillery engages incoming asteroids at long range, leading shots so they detonate along the asteroid's flight path.
 
@@ -15,6 +19,8 @@ Place artillery turrets and a **targeting computer** (`5 MW`) on your space plat
 
 ## Targeting computer
 
+![Targeting computer configuration and sector overlay](https://raw.githubusercontent.com/Tener/awesome-artillery/main/docs/showcase-computer-gui.png)
+
 Unlocked by **Artillery targeting computer** (requires Fulgora and Vulcanus science; crafted from rare processing units, rare radars, superconductors, tungsten plates, and low-density structures).
 
 Each computer configures which asteroids its platform's artillery engages:
@@ -25,12 +31,19 @@ Each computer configures which asteroids its platform's artillery engages:
 
 ## Space-manufactured shells
 
-- **Flash-hardened steel & Steel artillery shell (`200 physical + 800 explosion`):**
-  - Destroying **500** medium, big, or huge metallic, carbonic, or oxide asteroids with artillery completes **Asteroid ballistics field data**, unlocking the **Steel artillery shell** research (`2,000` packs).
-  - Cast in a **foundry** in space from asteroid resources (`molten-iron`, `carbon`, `calcite`, `ice`, `explosives`, and `radar`) without needing imported Vulcanus tungsten. Matches tungsten shells against small, medium, and big asteroids at base research, scales more slowly on big asteroids, and cannot pierce huge asteroids' 3,000 flat physical armor.
-- **Promethium artillery shell (`4000 physical + 1000 explosion`):**
-  - Destroying any medium, big, or huge promethium asteroid completes **Promethium ballistics field data**, unlocking the **Promethium artillery shell** research (`4,000` packs).
-  - Cast in a **foundry** in space from **flash-hardened steel** and **promethium asteroid chunks**, its massive kinetic punch pierces huge asteroids' 3,000 flat physical resistance even at 0% damage research and one-shots big asteroids.
+### Flash-hardened steel & Steel artillery shells (`200 physical + 800 explosion`)
+
+![In-situ shell casting in space](https://raw.githubusercontent.com/Tener/awesome-artillery/main/docs/showcase-production.gif)
+
+- Destroying **500** medium, big, or huge metallic, carbonic, or oxide asteroids with artillery completes **Asteroid ballistics field data**, unlocking the **Steel artillery shell** research (`2,000` packs).
+- Cast in a **foundry** in space from asteroid resources (`molten-iron`, `carbon`, `calcite`, `ice`, `explosives`, and `radar`) without needing imported Vulcanus tungsten. Matches tungsten shells against small, medium, and big asteroids at base research, scales more slowly on big asteroids, and cannot pierce huge asteroids' 3,000 flat physical armor.
+
+### Promethium artillery shells (`4000 physical + 1000 explosion`)
+
+![Heavy Promethium artillery shell shattering a huge asteroid](https://raw.githubusercontent.com/Tener/awesome-artillery/main/docs/showcase-promethium.gif)
+
+- Destroying any medium, big, or huge promethium asteroid completes **Promethium ballistics field data**, unlocking the **Promethium artillery shell** research (`4,000` packs).
+- Cast in a **foundry** in space from **flash-hardened steel** and **promethium asteroid chunks**, its massive kinetic punch pierces huge asteroids' 3,000 flat physical resistance even at 0% damage research and one-shots big asteroids.
 
 ## Map settings
 

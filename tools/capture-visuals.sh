@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs the showcase scenario in client rendering mode for 12 seconds,
+# Runs each focused showcase scenario in client rendering mode,
 # captures high-resolution screenshots and animation frames automatically,
-# and generates an optimized showcase GIF / MP4 with ffmpeg.
+# and generates optimized GIFs and MP4s with ffmpeg.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -9,41 +9,61 @@ OUTPUT_DIR="$ROOT/.factorio-test/play/script-output"
 DOCS_DIR="$ROOT/docs"
 
 mkdir -p "$DOCS_DIR"
-rm -f "$OUTPUT_DIR"/showcase-*.png "$OUTPUT_DIR"/thumb-*.png
 
-echo "==> Running showcase scenario (waiting for capture to complete, up to 60s)..."
-"$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" awesome-artillery/showcase 60
+capture_scenario() {
+  local name="$1"
+  local scenario="$2"
+  local still_prefix="$3"
+  local frame_prefix="$4"
+  local has_frames="$5"
 
-echo "==> Collecting visuals..."
-if [[ -f "$OUTPUT_DIR/showcase-16x9.png" ]]; then
-  cp "$OUTPUT_DIR/showcase-16x9.png" "$DOCS_DIR/"
-  echo "  - $DOCS_DIR/showcase-16x9.png"
-fi
-if [[ -f "$OUTPUT_DIR/showcase-square.png" ]]; then
-  cp "$OUTPUT_DIR/showcase-square.png" "$DOCS_DIR/"
-  echo "  - $DOCS_DIR/showcase-square.png"
-fi
-if [[ -f "$OUTPUT_DIR/showcase-thumb-512.png" ]]; then
-  cp "$OUTPUT_DIR/showcase-thumb-512.png" "$DOCS_DIR/"
-  echo "  - $DOCS_DIR/showcase-thumb-512.png"
-fi
+  echo "=========================================================="
+  echo "==> Capturing: $name ($scenario)"
+  echo "=========================================================="
+  rm -f "$OUTPUT_DIR"/*-frame-*.png "$OUTPUT_DIR"/*-16x9.png "$OUTPUT_DIR"/*-square.png "$OUTPUT_DIR"/computer-gui.png
 
-# If frame sequence exists and ffmpeg is installed, assemble GIF and MP4
-if compgen -G "$OUTPUT_DIR/showcase-frame-*.png" > /dev/null && command -v ffmpeg > /dev/null; then
-  echo "==> Generating showcase GIF and MP4 via ffmpeg..."
-  ffmpeg -y -hide_banner -loglevel error -framerate 20 \
-    -i "$OUTPUT_DIR/showcase-frame-%04d.png" \
-    -filter_complex "[0:v] fps=20,scale=800:-1:flags=lanczos,split [a][b];[a] palettegen=max_colors=128:stats_mode=diff [p];[b][p] paletteuse=dither=bayer:bayer_scale=3" \
-    "$DOCS_DIR/showcase.gif"
-  echo "  - $DOCS_DIR/showcase.gif ($(du -h "$DOCS_DIR/showcase.gif" | cut -f1))"
+  "$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" "$scenario" 60
 
-  ffmpeg -y -hide_banner -loglevel error -framerate 20 \
-    -i "$OUTPUT_DIR/showcase-frame-%04d.png" \
-    -c:v libx264 -pix_fmt yuv420p -crf 20 \
-    "$DOCS_DIR/showcase.mp4"
-  echo "  - $DOCS_DIR/showcase.mp4 ($(du -h "$DOCS_DIR/showcase.mp4" | cut -f1))"
+  # Copy stills
+  for f in "$OUTPUT_DIR"/${still_prefix}-16x9.png "$OUTPUT_DIR"/${still_prefix}-square.png "$OUTPUT_DIR"/computer-gui.png; do
+    if [[ -f "$f" ]]; then
+      local base
+      base="$(basename "$f")"
+      cp "$f" "$DOCS_DIR/showcase-$base"
+      echo "  - Stored: $DOCS_DIR/showcase-$base"
+    fi
+  done
 
-  rm -f "$OUTPUT_DIR"/showcase-frame-*.png
-fi
+  # Compile animation if frames exist
+  if [[ "$has_frames" == "true" ]] && compgen -G "$OUTPUT_DIR/${frame_prefix}-frame-*.png" > /dev/null && command -v ffmpeg > /dev/null; then
+    local gif="$DOCS_DIR/showcase-${name}.gif"
+    local mp4="$DOCS_DIR/showcase-${name}.mp4"
 
-echo "==> Visuals capture complete."
+    echo "  - Encoding $gif..."
+    ffmpeg -y -hide_banner -loglevel error -framerate 20 \
+      -i "$OUTPUT_DIR/${frame_prefix}-frame-%04d.png" \
+      -filter_complex "[0:v] fps=20,scale=800:-1:flags=lanczos,split [a][b];[a] palettegen=max_colors=128:stats_mode=diff [p];[b][p] paletteuse=dither=bayer:bayer_scale=3" \
+      "$gif"
+    echo "    Size: $(du -h "$gif" | cut -f1)"
+
+    echo "  - Encoding $mp4..."
+    ffmpeg -y -hide_banner -loglevel error -framerate 20 \
+      -i "$OUTPUT_DIR/${frame_prefix}-frame-%04d.png" \
+      -c:v libx264 -pix_fmt yuv420p -crf 20 \
+      "$mp4"
+    echo "    Size: $(du -h "$mp4" | cut -f1)"
+
+    rm -f "$OUTPUT_DIR"/${frame_prefix}-frame-*.png
+  fi
+}
+
+capture_scenario "hero" "awesome-artillery/showcase-hero" "hero" "hero" "true"
+capture_scenario "combat" "awesome-artillery/showcase-combat" "combat" "combat" "true"
+capture_scenario "computer" "awesome-artillery/showcase-computer" "computer" "" "false"
+capture_scenario "production" "awesome-artillery/showcase-production" "production" "production" "true"
+capture_scenario "promethium" "awesome-artillery/showcase-promethium" "promethium" "promethium" "true"
+
+echo "=========================================================="
+echo "==> All showcases captured successfully."
+echo "=========================================================="
+ls -lh "$DOCS_DIR"/showcase-*
