@@ -27,6 +27,9 @@ set -euo pipefail
 FACTORIO="$HOME/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio"
 
 die() { echo "factorio-test: $*" >&2; exit 2; }
+check_scenario() { [[ $1 =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]] || die "bad scenario: $1"; }
+# log lines that mean the client run failed
+ERRORS="Error while|non-recoverable|Exception at tick"
 
 graphics=0 client=0 play=0
 if [[ ${1:-} == --play ]]; then
@@ -34,13 +37,13 @@ if [[ ${1:-} == --play ]]; then
   shift
   [[ $# -eq 2 ]] || die "usage: $0 --play MODS_DIR MOD/SCENARIO"
   mods=$1 scenario=$2 ticks=0
-  [[ $scenario =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]] || die "bad scenario: $scenario"
+  check_scenario "$scenario"
 elif [[ ${1:-} == --client ]]; then
   client=1
   shift
   [[ $# -eq 3 ]] || die "usage: $0 --client MODS_DIR MOD/SCENARIO SECONDS"
   mods=$1 scenario=$2 secs=$3 ticks=0
-  [[ $scenario =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]] || die "bad scenario: $scenario"
+  check_scenario "$scenario"
   [[ $secs =~ ^[0-9]+$ ]] && (( secs > 0 && secs <= 600 )) || die "bad seconds: $secs"
 elif [[ ${1:-} == --graphics ]]; then
   graphics=1
@@ -51,7 +54,7 @@ elif [[ ${1:-} == --graphics ]]; then
 else
   [[ $# -ge 2 && $# -le 4 ]] || die "usage: $0 MODS_DIR MOD/SCENARIO [TEST_ARG] [TICKS]"
   mods=$1 scenario=$2 arg=${3:-} ticks=${4:-6000}
-  [[ $scenario =~ ^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$ ]] || die "bad scenario: $scenario"
+  check_scenario "$scenario"
   [[ $arg =~ ^[A-Za-z0-9_.\ -]*$ ]] || die "bad test arg: $arg"
 fi
 
@@ -90,7 +93,7 @@ elif (( client )); then
   failed=0
   for (( i = 0; i < secs; i++ )); do
     if ! kill -0 "$pid" 2>/dev/null; then break; fi
-    if grep -qE "Error while|non-recoverable|Exception at tick" "$log" 2>/dev/null; then
+    if grep -qE "$ERRORS" "$log" 2>/dev/null; then
       failed=1
       break
     fi
@@ -103,7 +106,7 @@ elif (( client )); then
   done
   kill "$pid" 2>/dev/null || true
   wait "$pid" 2>/dev/null || true
-  if grep -qE "Error while|non-recoverable|Exception at tick" "$log" 2>/dev/null; then failed=1; fi
+  if grep -qE "$ERRORS" "$log" 2>/dev/null; then failed=1; fi
   awk '/^\[/ || /Error/ { print }' "$log"
   if (( failed )); then
     tail -n 25 "$log"

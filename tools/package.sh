@@ -4,11 +4,7 @@
 # Usage: tools/package.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MOD="awesome-artillery"
-SRC="$ROOT/mods/$MOD"
-VERSION="$(sed -n 's/.*"version": *"\([0-9.]*\)".*/\1/p' "$SRC/info.json")"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "package: no version in info.json" >&2; exit 2; }
+source "$(dirname "$0")/common.sh"
 
 NAME="${MOD}_${VERSION}"
 STAGE="$(mktemp -d)"

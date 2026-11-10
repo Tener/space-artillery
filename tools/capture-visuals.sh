@@ -72,9 +72,11 @@ if not all(count > 0 for count in manifest['stats']['production'].values()):
 if not all(state['speed'] > 0 for state in manifest['stats']['flight'].values()):
     raise SystemExit('flight: ship is stationary')
 (root / 'previews.json').write_text(json.dumps(previews))
+(root / 'shots.txt').write_text(' '.join(shot['name'] for shot in manifest['shots']))
 PY
+read -r -a shots < "$OUTPUT_DIR/shots.txt"
 
-for name in production combat promethium hero; do
+for name in "${shots[@]}"; do
   echo "Encoding $name"
   ffmpeg -y -hide_banner -loglevel error -framerate 20 -start_number 0 \
     -i "$OUTPUT_DIR/${name}-frame-%04d.png" \
@@ -114,8 +116,8 @@ for shot in manifest['shots']:
         print(f"Verified {path.name}")
 PY
 
-for name in production combat promethium hero; do
-  cp "$OUTPUT_DIR/showcase-${name}.mp4" "$DOCS_DIR/"
+for name in "${shots[@]}"; do
+  cp"$OUTPUT_DIR/showcase-${name}.mp4" "$DOCS_DIR/"
   cp "$OUTPUT_DIR/showcase-${name}.gif" "$DOCS_DIR/"
 done
 echo "Showcase demos written to $DOCS_DIR"

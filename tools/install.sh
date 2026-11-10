@@ -4,11 +4,7 @@
 # Usage: tools/install.sh [FACTORIO_MODS_DIR]
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MOD="awesome-artillery"
-SRC="$ROOT/mods/$MOD"
-VERSION="$(sed -n 's/.*"version": *"\([0-9.]*\)".*/\1/p' "$SRC/info.json")"
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "install: no version in info.json" >&2; exit 2; }
+source "$(dirname "$0")/common.sh"
 
 if [[ $# -ge 1 ]]; then
   DEST="$1"
