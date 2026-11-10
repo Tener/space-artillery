@@ -18,14 +18,14 @@ end
 
 -- One invisible decoy per asteroid type. Vanilla artillery auto-targets it; it mirrors the
 -- asteroid's health and resistances so vanilla's predicted-damage check prevents overkill.
-data:extend{{type = "trigger-target-type", name = "awe-art-decoy"}}
+data:extend{{type = "trigger-target-type", name = "space-art-decoy"}}
 local empty = {filename = "__core__/graphics/empty.png", size = 1, frame_count = 1}
 local base = data.raw["unit-spawner"]["biter-spawner"]
 for name, asteroid in pairs(data.raw.asteroid) do
   if asteroid.max_health then
     local d = table.deepcopy(base)
-    d.name = "awe-art-decoy-" .. name
-    d.localised_name = {"entity-name.awe-art-decoy"}
+    d.name = "space-art-decoy-" .. name
+    d.localised_name = {"entity-name.space-art-decoy"}
     d.hidden = true
     d.flags = {"not-on-map", "not-blueprintable", "not-deconstructable", "not-flammable", "no-copy-paste",
       "not-upgradable", "not-selectable-in-game"}
@@ -35,7 +35,7 @@ for name, asteroid in pairs(data.raw.asteroid) do
     d.max_health = asteroid.max_health
     d.resistances = table.deepcopy(asteroid.resistances)
     d.healing_per_tick = 0
-    d.trigger_target_mask = {"awe-art-decoy"}
+    d.trigger_target_mask = {"space-art-decoy"}
     d.max_count_of_owned_units = 0
     d.max_friends_around_to_spawn = 0
     d.spawning_cooldown = {1e9, 1e9}
@@ -74,8 +74,8 @@ do
   end
   local r = data.raw.radar.radar
   local c = table.deepcopy(data.raw["programmable-speaker"]["programmable-speaker"])
-  c.name = "awe-art-targeting-computer"
-  c.minable = {mining_time = 0.2, result = "awe-art-targeting-computer"}
+  c.name = "space-art-targeting-computer"
+  c.minable = {mining_time = 0.2, result = "space-art-targeting-computer"}
   c.max_health = r.max_health
   c.corpse = r.corpse
   c.dying_explosion = r.dying_explosion
@@ -118,17 +118,17 @@ do
       },
     },
   }
-  c.factoriopedia_description = {"factoriopedia-description.awe-art-targeting-computer"}
+  c.factoriopedia_description = {"factoriopedia-description.space-art-targeting-computer"}
   local item = table.deepcopy(data.raw.item.radar)
-  item.name = "awe-art-targeting-computer"
-  item.place_result = "awe-art-targeting-computer"
+  item.name = "space-art-targeting-computer"
+  item.place_result = "space-art-targeting-computer"
   item.icon = c.icon
   item.icon_size = 64
   item.icons = nil
   item.order = "d[radar]-z[targeting-computer]"
-  item.factoriopedia_description = {"factoriopedia-description.awe-art-targeting-computer"}
+  item.factoriopedia_description = {"factoriopedia-description.space-art-targeting-computer"}
   data:extend{c, item, {
-    type = "recipe", name = "awe-art-targeting-computer", enabled = false, energy_required = 30,
+    type = "recipe", name = "space-art-targeting-computer", enabled = false, energy_required = 30,
     ingredients = {
       -- rare or better, whatever the recipe's quality
       {type = "item", name = "processing-unit", amount = 50, quality_min = "rare"},
@@ -137,13 +137,13 @@ do
       {type = "item", name = "tungsten-plate", amount = 20},
       {type = "item", name = "low-density-structure", amount = 10},
     },
-    results = {{type = "item", name = "awe-art-targeting-computer", amount = 1}},
+    results = {{type = "item", name = "space-art-targeting-computer", amount = 1}},
   }, {
-    type = "technology", name = "awe-art-targeting-computer",
+    type = "technology", name = "space-art-targeting-computer",
     icon = gfx .. "technology/targeting-computer.png",
     icon_size = 256,
     prerequisites = {"artillery", "electromagnetic-science-pack", "metallurgic-science-pack"},
-    effects = {{type = "unlock-recipe", recipe = "awe-art-targeting-computer"}},
+    effects = {{type = "unlock-recipe", recipe = "space-art-targeting-computer"}},
     unit = {count = 1000, time = 60, ingredients = science_packs()},
   }}
 
@@ -162,7 +162,7 @@ do
   -- asteroids and never breaks huge asteroids' 3000 flat physical resistance.
   local steel = data.raw.item["steel-plate"]
   local fhs = table.deepcopy(steel)
-  fhs.name = "awe-art-flash-hardened-steel"
+  fhs.name = "space-art-flash-hardened-steel"
   fhs.order = (steel.order or "c[steel-plate]") .. "-b[flash-hardened]"
   fhs.stack_size = 50
   fhs.icon = gfx .. "icons/flash-hardened-steel.png"
@@ -170,7 +170,7 @@ do
   fhs.icons = nil
   fhs.random_tint_color = nil
   fhs.factoriopedia_simulation = nil
-  fhs.factoriopedia_description = {"factoriopedia-description.awe-art-flash-hardened-steel"}
+  fhs.factoriopedia_description = {"factoriopedia-description.space-art-flash-hardened-steel"}
 
   local function set_damage(t, phys, expl)
     if type(t) ~= "table" then return end
@@ -189,9 +189,9 @@ do
   -- lists for it. kind names the shell and its graphics ("steel", "promethium").
   local base_shell = data.raw.ammo["artillery-shell"]
   local function make_shell(kind, order, map_color, picture_scale)
-    local name = "awe-art-" .. kind .. "-artillery-shell"
+    local name = "space-art-" .. kind .. "-artillery-shell"
     local proj = table.deepcopy(data.raw["artillery-projectile"]["artillery-projectile"])
-    proj.name = "awe-art-" .. kind .. "-artillery-projectile"
+    proj.name = "space-art-" .. kind .. "-artillery-projectile"
     proj.hidden_in_factoriopedia = true
     proj.map_color = map_color
     proj.picture = {
@@ -228,7 +228,7 @@ do
 
   -- A technology completed by control.lua (field data), gating a shell technology.
   local function trigger_tech(short, prerequisite, param)
-    local name = "awe-art-" .. short
+    local name = "space-art-" .. short
     return {
       type = "technology", name = name,
       icon = gfx .. "technology/" .. short .. ".png",
@@ -245,7 +245,7 @@ do
     }
   end
   local function shell_tech(kind, prerequisites, recipes, count, ...)
-    local name = "awe-art-" .. kind .. "-artillery-shell"
+    local name = "space-art-" .. kind .. "-artillery-shell"
     local effects = {}
     for _, recipe in pairs(recipes) do effects[#effects + 1] = {type = "unlock-recipe", recipe = recipe} end
     return {
@@ -260,7 +260,7 @@ do
   end
 
   data:extend{fhs, proj, shell, prom_proj, prom_shell, {
-    type = "recipe", name = "awe-art-flash-hardened-steel", categories = {"metallurgy"}, enabled = false, energy_required = 19.2,
+    type = "recipe", name = "space-art-flash-hardened-steel", categories = {"metallurgy"}, enabled = false, energy_required = 19.2,
     allow_productivity = true, auto_recycle = false,
     ingredients = {
       {type = "fluid", name = "molten-iron", amount = 60, fluidbox_multiplier = 10},
@@ -268,31 +268,31 @@ do
       {type = "item", name = "calcite", amount = 1},
       {type = "item", name = "ice", amount = 2},
     },
-    results = {{type = "item", name = "awe-art-flash-hardened-steel", amount = 1}},
+    results = {{type = "item", name = "space-art-flash-hardened-steel", amount = 1}},
   }, {
-    type = "recipe", name = "awe-art-steel-artillery-shell", categories = {"metallurgy"}, enabled = false, energy_required = 15,
+    type = "recipe", name = "space-art-steel-artillery-shell", categories = {"metallurgy"}, enabled = false, energy_required = 15,
     ingredients = {
-      {type = "item", name = "awe-art-flash-hardened-steel", amount = 2},
+      {type = "item", name = "space-art-flash-hardened-steel", amount = 2},
       {type = "item", name = "explosives", amount = 8},
       {type = "item", name = "radar", amount = 1},
     },
-    results = {{type = "item", name = "awe-art-steel-artillery-shell", amount = 1}},
+    results = {{type = "item", name = "space-art-steel-artillery-shell", amount = 1}},
   }, {
-    type = "recipe", name = "awe-art-promethium-artillery-shell", categories = {"metallurgy"}, enabled = false, energy_required = 20,
+    type = "recipe", name = "space-art-promethium-artillery-shell", categories = {"metallurgy"}, enabled = false, energy_required = 20,
     ingredients = {
-      {type = "item", name = "awe-art-flash-hardened-steel", amount = 2},
+      {type = "item", name = "space-art-flash-hardened-steel", amount = 2},
       {type = "item", name = "promethium-asteroid-chunk", amount = 1},
       {type = "item", name = "explosives", amount = 8},
       {type = "item", name = "radar", amount = 1},
     },
-    results = {{type = "item", name = "awe-art-promethium-artillery-shell", amount = 1}},
+    results = {{type = "item", name = "space-art-promethium-artillery-shell", amount = 1}},
   },
-    trigger_tech("asteroid-ballistics", "awe-art-targeting-computer", ballistics_kills),
-    shell_tech("steel", {"awe-art-asteroid-ballistics", "advanced-asteroid-processing"},
-      {"awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell"}, 2000),
-    trigger_tech("promethium-ballistics", "awe-art-steel-artillery-shell"),
-    shell_tech("promethium", {"awe-art-promethium-ballistics"},
-      {"awe-art-promethium-artillery-shell"}, 4000, "agricultural-science-pack", "cryogenic-science-pack"),
+    trigger_tech("asteroid-ballistics", "space-art-targeting-computer", ballistics_kills),
+    shell_tech("steel", {"space-art-asteroid-ballistics", "advanced-asteroid-processing"},
+      {"space-art-flash-hardened-steel", "space-art-steel-artillery-shell"}, 2000),
+    trigger_tech("promethium-ballistics", "space-art-steel-artillery-shell"),
+    shell_tech("promethium", {"space-art-promethium-ballistics"},
+      {"space-art-promethium-artillery-shell"}, 4000, "agricultural-science-pack", "cryogenic-science-pack"),
   }
 
   -- Artillery turret turning speed research (starting at 2k). Factorio has no built-in
@@ -302,7 +302,7 @@ do
   base_turret.fast_replaceable_group = base_turret.fast_replaceable_group or "artillery-turret"
   for level = 1, constants.rotation_levels do
     local tr = table.deepcopy(base_turret)
-    tr.name = "awe-art-artillery-turret-r" .. level
+    tr.name = "space-art-artillery-turret-r" .. level
     tr.localised_name = {"entity-name.artillery-turret"}
     tr.localised_description = {"entity-description.artillery-turret"}
     tr.hidden = true
@@ -316,14 +316,14 @@ do
     if level >= 7 then ing[#ing + 1] = {"promethium-science-pack", 1} end
     data:extend{tr, {
       type = "technology",
-      name = "awe-art-artillery-rotation-" .. level,
+      name = "space-art-artillery-rotation-" .. level,
       icons = {
         {icon = gfx .. "technology/artillery-rotation.png", icon_size = 256},
         {icon = "__core__/graphics/icons/technology/effect-constant/effect-constant-movement-speed.png", icon_size = 64, shift = {32, 32}},
       },
-      factoriopedia_description = {"factoriopedia-description.awe-art-artillery-rotation", rotation_percent},
-      prerequisites = {level == 1 and "awe-art-targeting-computer" or ("awe-art-artillery-rotation-" .. (level - 1))},
-      effects = {{type = "nothing", effect_description = {"technology-effect.awe-art-artillery-rotation", rotation_percent}}},
+      factoriopedia_description = {"factoriopedia-description.space-art-artillery-rotation", rotation_percent},
+      prerequisites = {level == 1 and "space-art-targeting-computer" or ("space-art-artillery-rotation-" .. (level - 1))},
+      effects = {{type = "nothing", effect_description = {"technology-effect.space-art-artillery-rotation", rotation_percent}}},
       unit = {count = 2000 * (2 ^ (level - 1)), time = 60, ingredients = ing},
       upgrade = true,
     }}
@@ -332,14 +332,14 @@ do
   -- Artillery shell velocity research (infinite, starting at 2k).
   data:extend{{
     type = "technology",
-    name = "awe-art-artillery-shell-velocity-1",
+    name = "space-art-artillery-shell-velocity-1",
     icons = {
       {icon = gfx .. "technology/artillery-shell-velocity.png", icon_size = 256},
       {icon = "__core__/graphics/icons/technology/effect-constant/effect-constant-movement-speed.png", icon_size = 64, shift = {32, 32}},
     },
-    factoriopedia_description = {"factoriopedia-description.awe-art-artillery-shell-velocity", velocity_percent},
-    prerequisites = {"awe-art-targeting-computer"},
-    effects = {{type = "nothing", effect_description = {"technology-effect.awe-art-artillery-shell-velocity", velocity_percent}}},
+    factoriopedia_description = {"factoriopedia-description.space-art-artillery-shell-velocity", velocity_percent},
+    prerequisites = {"space-art-targeting-computer"},
+    effects = {{type = "nothing", effect_description = {"technology-effect.space-art-artillery-shell-velocity", velocity_percent}}},
     unit = {
       count_formula = "2^(L-1)*2000",
       time = 60,
@@ -364,41 +364,41 @@ do
   data:extend{
     {
       type = "tips-and-tricks-item",
-      name = "awe-art-space-artillery",
+      name = "space-art-space-artillery",
       category = cat,
       indent = base_indent,
-      order = base_order .. "-z[awe-art-a]",
-      tag = "[entity=awe-art-targeting-computer]",
+      order = base_order .. "-z[space-art-a]",
+      tag = "[entity=space-art-targeting-computer]",
       dependencies = parent and {parent.name} or nil,
-      trigger = {type = "research", technology = "awe-art-targeting-computer"},
+      trigger = {type = "research", technology = "space-art-targeting-computer"},
       simulation = simulations.space,
     },
     {
       type = "tips-and-tricks-item",
-      name = "awe-art-steel-artillery-shell",
+      name = "space-art-steel-artillery-shell",
       category = cat,
       indent = base_indent + 1,
-      order = base_order .. "-z[awe-art-b]",
-      tag = "[item=awe-art-steel-artillery-shell]",
-      localised_description = damage_text("tips-and-tricks-item-description", "awe-art-steel-artillery-shell"),
-      dependencies = {"awe-art-space-artillery"},
-      trigger = {type = "research", technology = "awe-art-steel-artillery-shell"},
+      order = base_order .. "-z[space-art-b]",
+      tag = "[item=space-art-steel-artillery-shell]",
+      localised_description = damage_text("tips-and-tricks-item-description", "space-art-steel-artillery-shell"),
+      dependencies = {"space-art-space-artillery"},
+      trigger = {type = "research", technology = "space-art-steel-artillery-shell"},
       simulation = simulations.steel,
     },
     {
       type = "tips-and-tricks-item",
-      name = "awe-art-promethium-artillery-shell",
+      name = "space-art-promethium-artillery-shell",
       category = cat,
       indent = base_indent + 1,
-      order = base_order .. "-z[awe-art-c]",
-      tag = "[item=awe-art-promethium-artillery-shell]",
-      localised_description = damage_text("tips-and-tricks-item-description", "awe-art-promethium-artillery-shell"),
-      dependencies = {"awe-art-steel-artillery-shell"},
-      trigger = {type = "research", technology = "awe-art-promethium-artillery-shell"},
+      order = base_order .. "-z[space-art-c]",
+      tag = "[item=space-art-promethium-artillery-shell]",
+      localised_description = damage_text("tips-and-tricks-item-description", "space-art-promethium-artillery-shell"),
+      dependencies = {"space-art-steel-artillery-shell"},
+      trigger = {type = "research", technology = "space-art-promethium-artillery-shell"},
       simulation = simulations.prom,
     },
   }
-  data:extend{{type = "mod-data", name = "awe-art-sims", data = {
+  data:extend{{type = "mod-data", name = "space-art-sims", data = {
     space = simulations.space.init,
     fhs = simulations.fhs.init,
     steel = simulations.steel.init,
@@ -442,13 +442,13 @@ do
       catalogue[name] = {chunk = chunk, size = math.min(size, 4)}
     end
   end
-  data:extend{{type = "mod-data", name = "awe-art-asteroids", data = catalogue}}
+  data:extend{{type = "mod-data", name = "space-art-asteroids", data = catalogue}}
 end
 
 -- Every other turret ignores decoys (verified: without this, rocket turrets shoot them).
 for _, type in pairs{"ammo-turret", "electric-turret", "fluid-turret", "turret"} do
   for _, t in pairs(data.raw[type] or {}) do
     t.ignore_target_mask = t.ignore_target_mask or {}
-    table.insert(t.ignore_target_mask, "awe-art-decoy")
+    table.insert(t.ignore_target_mask, "space-art-decoy")
   end
 end

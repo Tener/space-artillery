@@ -3,8 +3,8 @@ return {
   -- Damage per shell by ammo name ("artillery-shell" mirrors the base game's values).
   shells = {
     ["artillery-shell"] = {physical = 1000, explosion = 1000},
-    ["awe-art-steel-artillery-shell"] = {physical = 200, explosion = 800},
-    ["awe-art-promethium-artillery-shell"] = {physical = 4000, explosion = 1000},
+    ["space-art-steel-artillery-shell"] = {physical = 200, explosion = 800},
+    ["space-art-promethium-artillery-shell"] = {physical = 4000, explosion = 1000},
   },
   rotation_levels = 10,
   rotation_percent = 30, -- turret rotation speed per research level

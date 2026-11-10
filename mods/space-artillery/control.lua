@@ -16,8 +16,8 @@ local BUILD_FILTER = {
   {filter = "ghost_name", name = computer.NAME, mode = "or"},
 }
 local ASTEROID_FILTER = {{filter = "type", type = "asteroid"}}
-local BALLISTICS_TECH = "awe-art-asteroid-ballistics"
-local PROMETHIUM_BALLISTICS_TECH = "awe-art-promethium-ballistics"
+local BALLISTICS_TECH = "space-art-asteroid-ballistics"
+local PROMETHIUM_BALLISTICS_TECH = "space-art-promethium-ballistics"
 local BALLISTICS_KILLS = balance.ballistics_kills
 local BALLISTICS_CHUNKS = {"metallic-asteroid-chunk", "carbonic-asteroid-chunk", "oxide-asteroid-chunk"}
 local MAX_ROTATION_LEVEL = balance.rotation_levels
@@ -50,14 +50,14 @@ end
 
 local function rotation_turret_name(force)
   for level = MAX_ROTATION_LEVEL, 1, -1 do
-    local tech = force.technologies["awe-art-artillery-rotation-" .. level]
-    if tech and tech.researched then return "awe-art-artillery-turret-r" .. level end
+    local tech = force.technologies["space-art-artillery-rotation-" .. level]
+    if tech and tech.researched then return "space-art-artillery-turret-r" .. level end
   end
   return "artillery-turret"
 end
 
 local function shell_velocity_mult(force)
-  local tech = force and force.technologies["awe-art-artillery-shell-velocity-1"]
+  local tech = force and force.technologies["space-art-artillery-shell-velocity-1"]
   if not tech then return 1 end
   local levels = (tech.level or 1) - 1
   if tech.researched then levels = levels + 1 end
@@ -66,7 +66,7 @@ end
 
 -- Only the base turret and this mod's variants of it are swapped; other mods' turrets are left alone.
 local function has_rotation_variants(name)
-  return name == "artillery-turret" or name:find("^awe%-art%-artillery%-turret%-r%d+$") ~= nil
+  return name == "artillery-turret" or name:find("^space%-art%-artillery%-turret%-r%d+$") ~= nil
 end
 
 local function sync_turret_rotation(t)
@@ -246,7 +246,7 @@ local function update_asteroid(tr, ctx)
   if tr.d and tr.d.valid then
     if moved then tr.d.teleport(aim) end
   else
-    tr.d = s.create_entity{name = "awe-art-decoy-" .. name, position = aim, force = "enemy"}
+    tr.d = s.create_entity{name = "space-art-decoy-" .. name, position = aim, force = "enemy"}
     tr.dh = nil
   end
   if tr.d and tr.dh ~= health then tr.d.health = health; tr.dh = health end
@@ -265,8 +265,8 @@ local function scan_surface(s, turrets, interval)
   local g = settings.global
 
   local ctx = {s = s, force = force, interval = interval, scan_tick = game.tick,
-    min_rank = SIZE_RANK[g["awe-art-min-size"].value], max_shells = g["awe-art-max-shells"].value,
-    blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s)}
+    min_rank = SIZE_RANK[g["space-art-min-size"].value], max_shells = g["space-art-max-shells"].value,
+    blast = BLAST_RADIUS + g["space-art-safety-margin"].value, hull = hull_boxes(s)}
   storage.ctx[s.index] = ctx
 
   local cx, cy = 0, 0
@@ -278,13 +278,13 @@ local function scan_surface(s, turrets, interval)
     cx, cy = cx + p.x, cy + p.y
     local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
     if inv then
-      if inv.get_item_count("awe-art-promethium-artillery-shell") > 0 then has_promethium = true end
+      if inv.get_item_count("space-art-promethium-artillery-shell") > 0 then has_promethium = true end
       if inv.get_item_count("artillery-shell") > 0 then has_tungsten = true end
-      if inv.get_item_count("awe-art-steel-artillery-shell") > 0 then has_steel = true end
+      if inv.get_item_count("space-art-steel-artillery-shell") > 0 then has_steel = true end
     end
   end
-  ctx.shell = has_promethium and "awe-art-promethium-artillery-shell"
-    or ((has_tungsten or not has_steel) and "artillery-shell" or "awe-art-steel-artillery-shell")
+  ctx.shell = has_promethium and "space-art-promethium-artillery-shell"
+    or ((has_tungsten or not has_steel) and "artillery-shell" or "space-art-steel-artillery-shell")
   cx, cy = cx / #turrets, cy / #turrets
   local spread = 0
   for _, t in pairs(positions) do spread = math.max(spread, dist(cx, cy, t[1], t[2])) end
@@ -292,7 +292,7 @@ local function scan_surface(s, turrets, interval)
   ctx.reach_min, ctx.reach_max = math.max(0, c.min_range - spread), range + spread
 
   local rules_by_comp, present = computer.rules(s.index)
-  if not present and not settings.global["awe-art-require-computer"].value then
+  if not present and not settings.global["space-art-require-computer"].value then
     rules_by_comp = nil
   end
   ctx.rules = rules_by_comp
@@ -359,7 +359,7 @@ local function update(tick, interval)
 end
 
 script.on_event(defines.events.on_tick, function(e)
-  local interval = settings.global["awe-art-update-interval"].value
+  local interval = settings.global["space-art-update-interval"].value
   if not P then return update(e.tick, interval) end
   local t = helpers.create_profiler()
   local n, found = update(e.tick, interval)
@@ -443,7 +443,7 @@ end)
 local function on_research_changed(e)
   storage.damage = {}
   -- only rotation research changes which turret variant is wanted
-  if e.research.name:find("^awe%-art%-artillery%-rotation%-") then rescan() end
+  if e.research.name:find("^space%-art%-artillery%-rotation%-") then rescan() end
   if e.research.force then check_ballistics_tech(e.research.force) end
 end
 script.on_event(defines.events.on_research_finished, on_research_changed)
@@ -470,10 +470,10 @@ script.on_configuration_changed(function()
   for _, f in pairs(game.forces) do check_ballistics_tech(f) end
 end)
 
-commands.add_command("awe-art-debug", "Toggle drawing of artillery decoys (red circle = aim point).", function(cmd)
+commands.add_command("space-art-debug", "Toggle drawing of artillery decoys (red circle = aim point).", function(cmd)
   storage.debug = not storage.debug
   local p = cmd.player_index and game.get_player(cmd.player_index)
-  local msg = "awe-art-debug " .. (storage.debug and "on" or "off")
+  local msg = "space-art-debug " .. (storage.debug and "on" or "off")
   if p then p.print(msg) else print(msg) end
 end)
 
@@ -527,6 +527,6 @@ remote.add_interface("space-artillery", {
   test_gui_check = function(e)
     computer.handle_checked_state_changed(e)
   end,
-  set_min_size = function(size) settings.global["awe-art-min-size"] = {value = size} end,
-  set_interval = function(ticks) settings.global["awe-art-update-interval"] = {value = ticks} end,
+  set_min_size = function(size) settings.global["space-art-min-size"] = {value = size} end,
+  set_interval = function(ticks) settings.global["space-art-update-interval"] = {value = ticks} end,
 })

@@ -16,16 +16,16 @@ local router = require("__space-artillery__/scenarios/showcase/router")
 local M = {}
 
 local FOUNDATION = "space-platform-foundation"
-local FHS = "awe-art-flash-hardened-steel"
-local SHELL = "awe-art-steel-artillery-shell"
+local FHS = "space-art-flash-hardened-steel"
+local SHELL = "space-art-steel-artillery-shell"
 M.RESERVE = 24 -- shells the hub holds before the foundry's output inserter stops
 
 function M.build(profile)
   local force = game.forces.player
   for _, name in ipairs{"vulcanus", "gleba", "fulgora", "aquilo"} do force.unlock_space_location(name) end
   for _, recipe in pairs(force.recipes) do recipe.enabled = true end
-  for level = 1, profile.rotation do force.technologies["awe-art-artillery-rotation-" .. level].researched = true end
-  force.technologies["awe-art-artillery-shell-velocity-1"].level = profile.velocity + 1
+  for level = 1, profile.rotation do force.technologies["space-art-artillery-rotation-" .. level].researched = true end
+  force.technologies["space-art-artillery-shell-velocity-1"].level = profile.velocity + 1
   force.set_ammo_damage_modifier("artillery-shell", profile.damage)
   force.set_gun_speed_modifier("artillery-shell", profile.fire_rate)
   force.set_ammo_damage_modifier("bullet", profile.bullet_damage)
@@ -111,7 +111,7 @@ function M.build(profile)
   -- West of the hub: iron melting above the steel foundry. Both face south, so the melter's
   -- outlets and the steel foundry's inlets share the row between them.
   local turrets = {}
-  local cannon = profile.rotation > 0 and ("awe-art-artillery-turret-r" .. profile.rotation) or "artillery-turret"
+  local cannon = profile.rotation > 0 and ("space-art-artillery-turret-r" .. profile.rotation) or "artillery-turret"
   machine("melt", "foundry", {-7.5, -5.5}, "iron-ore-melting", defines.direction.south)
   inserter({-5, -4}, "east", {filters = {"iron-ore", "calcite"}})
   g.pipe(-9, -3, "molten-iron")
@@ -128,7 +128,7 @@ function M.build(profile)
   inserter({4, 0}, "east", {limit = {SHELL, "<", M.RESERVE}})
   turrets[2] = machine("gun2", cannon, {6.5, 4.5})
   inserter({4, 3}, "west", {filters = {SHELL}})
-  local computer = g.make("awe-art-targeting-computer", {8.5, -6.5})
+  local computer = g.make("space-art-targeting-computer", {8.5, -6.5})
 
   -- South of the hub: thruster fuel, water and oxidizer. The water plant faces the hub, so
   -- its outlets meet its neighbours' inlets in the inserter row.

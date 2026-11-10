@@ -11,7 +11,7 @@ script.on_init(function()
   panel.health = panel.max_health / 2
   -- decoys sit off the hull, like in play
   for i, name in pairs{"medium-metallic-asteroid", "big-metallic-asteroid"} do
-    local d = s.create_entity{name = "awe-art-decoy-" .. name, position = {i * 5, -12}, force = "enemy"}
+    local d = s.create_entity{name = "space-art-decoy-" .. name, position = {i * 5, -12}, force = "enemy"}
     d.health = d.max_health / 2
   end
   storage.s = s
@@ -20,6 +20,6 @@ end)
 script.on_event(defines.events.on_tick, function(e)
   if e.tick == 60 then
     game.take_screenshot{surface = storage.s, position = {3, -12}, resolution = {1200, 600}, zoom = 2,
-      path = "awe-art-bars.png", show_entity_info = false, hide_health_bars = false}
+      path = "space-art-bars.png", show_entity_info = false, hide_health_bars = false}
   end
 end)

@@ -16,8 +16,8 @@ function M.build(profile)
   local force = game.forces.player
   for _, name in ipairs{"vulcanus", "gleba", "fulgora", "aquilo"} do force.unlock_space_location(name) end
   for _, recipe in pairs(force.recipes) do recipe.enabled = true end
-  for level = 1, profile.rotation do force.technologies["awe-art-artillery-rotation-" .. level].researched = true end
-  force.technologies["awe-art-artillery-shell-velocity-1"].level = profile.velocity + 1
+  for level = 1, profile.rotation do force.technologies["space-art-artillery-rotation-" .. level].researched = true end
+  force.technologies["space-art-artillery-shell-velocity-1"].level = profile.velocity + 1
   force.set_ammo_damage_modifier("artillery-shell", profile.damage)
   force.set_gun_speed_modifier("artillery-shell", profile.fire_rate)
   force.inserter_stack_size_bonus = 6
@@ -70,9 +70,9 @@ function M.build(profile)
   machine("oxide", "crusher", {26, -34.5}, "advanced-oxide-asteroid-crushing")
   machine("oxide_propulsion", "crusher", {30, 4.5}, "advanced-oxide-asteroid-crushing")
   machine("melt", "foundry", {-30.5, -18.5}, "iron-ore-melting", defines.direction.east)
-  machine("steel", "foundry", {-16.5, -18.5}, "awe-art-flash-hardened-steel", defines.direction.east)
-  machine("shells", "foundry", {-16.5, -35.5}, "awe-art-steel-artillery-shell")
-  machine("prom_shells", "foundry", {15.5, -35.5}, "awe-art-promethium-artillery-shell")
+  machine("steel", "foundry", {-16.5, -18.5}, "space-art-flash-hardened-steel", defines.direction.east)
+  machine("shells", "foundry", {-16.5, -35.5}, "space-art-steel-artillery-shell")
+  machine("prom_shells", "foundry", {15.5, -35.5}, "space-art-promethium-artillery-shell")
   machine("water", "chemical-plant", {26.5, -18.5}, "ice-melting")
   machine("coal", "chemical-plant", {10.5, -18.5}, "coal-synthesis")
   machine("explosives", "chemical-plant", {18.5, -4.5}, "explosives")
@@ -96,11 +96,11 @@ function M.build(profile)
   end
   local turrets, steel_loaders, prom_loaders = {}, {}, {}
   for i, x in ipairs{-12.5, -4.5, 4.5, 12.5} do
-    local turret = make(profile.rotation > 0 and ("awe-art-artillery-turret-r" .. profile.rotation) or "artillery-turret",
+    local turret = make(profile.rotation > 0 and ("space-art-artillery-turret-r" .. profile.rotation) or "artillery-turret",
       {x, -52.5})
     turrets[i], nodes["gun" .. i] = turret, turret
   end
-  local computer = make("awe-art-targeting-computer", {0, -52})
+  local computer = make("space-art-targeting-computer", {0, -52})
   for _, x in ipairs{-36, -28, 28, 36} do make("laser-turret", {x, -52}, nil, {quality = profile.laser_quality}) end
   force.set_ammo_damage_modifier("laser", profile.laser_damage)
   force.set_gun_speed_modifier("laser", profile.laser_fire_rate)
@@ -247,14 +247,14 @@ function M.build(profile)
   end
 
   for i = 1, 4 do
-    steel_loaders[i] = item_link("magazine", "gun" .. i, "awe-art-steel-artillery-shell")
-    prom_loaders[i] = item_link("magazine", "gun" .. i, "awe-art-promethium-artillery-shell")
+    steel_loaders[i] = item_link("magazine", "gun" .. i, "space-art-steel-artillery-shell")
+    prom_loaders[i] = item_link("magazine", "gun" .. i, "space-art-promethium-artillery-shell")
     prom_loaders[i].disabled_by_script = true
   end
 
   for _, spec in ipairs{
-    {"shells", "magazine", "awe-art-steel-artillery-shell"},
-    {"prom_shells", "magazine", "awe-art-promethium-artillery-shell"},
+    {"shells", "magazine", "space-art-steel-artillery-shell"},
+    {"prom_shells", "magazine", "space-art-promethium-artillery-shell"},
     {"metal_collector", "metal", "metallic-asteroid-chunk"},
     {"carbon_collector", "carbon", "carbonic-asteroid-chunk"},
     {"carbon_collector", "carbon_propulsion", "carbonic-asteroid-chunk"},
@@ -273,8 +273,8 @@ function M.build(profile)
     {"carbon_propulsion", "coal", "carbon"},
     {"carbon_propulsion", "coal", "sulfur"}, {"carbon_propulsion", "explosives", "sulfur"},
     {"carbon", "explosives", "sulfur"}, {"coal", "explosives", "coal"},
-    {"steel", "shells", "awe-art-flash-hardened-steel"},
-    {"steel", "prom_shells", "awe-art-flash-hardened-steel"},
+    {"steel", "shells", "space-art-flash-hardened-steel"},
+    {"steel", "prom_shells", "space-art-flash-hardened-steel"},
     {"explosives", "shells", "explosives"}, {"explosives", "prom_shells", "explosives"},
     {"copper", "cable", "copper-plate"}, {"cable", "circuits", "copper-cable"},
     {"iron", "circuits", "iron-plate"}, {"iron", "gears", "iron-plate"},

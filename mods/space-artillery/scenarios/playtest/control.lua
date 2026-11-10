@@ -57,7 +57,7 @@ local function build_ship()
   for _, pos in pairs{{-8, 24}, {8, 24}} do storage.thrusters[#storage.thrusters + 1] = make("thruster", pos) end
 
   local case = storage.case
-  if case ~= "tc-none" and case ~= "perf-idle" then storage.computer = make("awe-art-targeting-computer", COMPUTER_POS) end
+  if case ~= "tc-none" and case ~= "perf-idle" then storage.computer = make("space-art-targeting-computer", COMPUTER_POS) end
   local function wire_cc(target, pos, slots)
     local cc = make("constant-combinator", pos)
     local section = cc.get_or_create_control_behavior().sections[1] or cc.get_control_behavior().add_section()
@@ -88,7 +88,7 @@ local function build_ship()
   elseif case == "tc-wires" then
     -- two computers with separate wires: A medium+ by signal, B small-only by settings
     say("tc-wires wired=%s", tostring(wire_cc(storage.computer, {9.5, -16.5}, {{"signal-S", 2}})))
-    storage.computer_b = make("awe-art-targeting-computer", {-6.5, -18.5})
+    storage.computer_b = make("space-art-targeting-computer", {-6.5, -18.5})
     storage.pending_cfg[comp] = {use = {size = true}}
     storage.pending_cfg[storage.computer_b.unit_number] = {sizes = {small = true}}
   end
@@ -172,8 +172,8 @@ local CHECKLIST = {
 }
 
 local function build_gui(p)
-  if p.gui.left.awe_art_panel then p.gui.left.awe_art_panel.destroy() end
-  local f = p.gui.left.add{type = "frame", name = "awe_art_panel", caption = "Artillery playtest", direction = "vertical"}
+  if p.gui.left.space_art_panel then p.gui.left.space_art_panel.destroy() end
+  local f = p.gui.left.add{type = "frame", name = "space_art_panel", caption = "Artillery playtest", direction = "vertical"}
   f.style.width = 440
   local inner = f.add{type = "frame", name = "inner", style = "inside_shallow_frame_with_padding", direction = "vertical"}
   inner.style.horizontally_stretchable = true
@@ -198,55 +198,55 @@ local function build_gui(p)
 
   local sp = control("Speed", "Platform speed while travelling")
   for _, v in pairs(SPEEDS) do
-    button(sp, "awe_art_speed_" .. v, v == 0 and "Thrusters" or tostring(v),
+    button(sp, "space_art_speed_" .. v, v == 0 and "Thrusters" or tostring(v),
       v == 0 and "Let the thrusters drive (about 2)" or ("Force platform speed " .. v), v == 0 and 88 or 48)
   end
 
   local function stepper(name, label, tooltip)
     local r = control(label, tooltip)
-    button(r, "awe_art_" .. name .. "_minus", "-", nil, 32)
-    local ro = r.add{type = "label", name = "awe_art_" .. name .. "_readout"}
+    button(r, "space_art_" .. name .. "_minus", "-", nil, 32)
+    local ro = r.add{type = "label", name = "space_art_" .. name .. "_readout"}
     ro.style.width = 110
     ro.style.horizontal_align = "center"
-    button(r, "awe_art_" .. name .. "_plus", "+", nil, 32)
+    button(r, "space_art_" .. name .. "_plus", "+", nil, 32)
   end
   stepper("damage", "Damage research", "Artillery shell damage, +10% per level (steps of 5 levels)")
   stepper("rate", "Fire-rate research", "Artillery shooting speed, +100% per level")
 
   local ms = control("Smallest target", "Mod setting: smallest asteroid artillery will shoot")
-  ms.add{type = "drop-down", name = "awe_art_min_size", items = SIZES}.style.width = 120
+  ms.add{type = "drop-down", name = "space_art_min_size", items = SIZES}.style.width = 120
 
   local tg = control("Options")
-  tg.add{type = "checkbox", name = "awe_art_refill", caption = "Refill shells", state = storage.refill,
+  tg.add{type = "checkbox", name = "space_art_refill", caption = "Refill shells", state = storage.refill,
     tooltip = "Top up every artillery turret to 15 shells each second"}
-  tg.add{type = "checkbox", name = "awe_art_debug", caption = "Show decoys and zones", state = storage.debug,
+  tg.add{type = "checkbox", name = "space_art_debug", caption = "Show decoys and zones", state = storage.debug,
     tooltip = "Red circle = decoy (aim point), line from its asteroid; blue = every computer's zone"}
 
   inner.add{type = "line"}
   local b = inner.add{type = "flow", direction = "horizontal"}
-  button(b, "awe_art_add_computer", "Add computer", "Place another targeting computer near the hub (powered)", 120)
-  button(b, "awe_art_shot", "Screenshot", "Save your current view without the UI to script-output", 110)
-  button(b, "awe_art_shot_ui", "With UI", "Save your current view including the UI to script-output", 90)
+  button(b, "space_art_add_computer", "Add computer", "Place another targeting computer near the hub (powered)", 120)
+  button(b, "space_art_shot", "Screenshot", "Save your current view without the UI to script-output", 110)
+  button(b, "space_art_shot_ui", "With UI", "Save your current view including the UI to script-output", 90)
 
   inner.add{type = "line"}
   local h = inner.add{type = "flow", direction = "horizontal", vertical_centering = true}
-  h.add{type = "label", name = "awe_art_checklist_title", style = "bold_label"}
+  h.add{type = "label", name = "space_art_checklist_title", style = "bold_label"}
   h.add{type = "empty-widget"}.style.horizontally_stretchable = true
-  button(h, "awe_art_give_computers", "Computers to hub", "Put 5 targeting computers into the hub, so the platform can build your blueprints and pastes", 150)
+  button(h, "space_art_give_computers", "Computers to hub", "Put 5 targeting computers into the hub, so the platform can build your blueprints and pastes", 150)
   for i, item in pairs(CHECKLIST) do
-    inner.add{type = "checkbox", name = "awe_art_check_" .. i, caption = item[1], tooltip = item[2], state = storage.checklist[i] or false}
+    inner.add{type = "checkbox", name = "space_art_check_" .. i, caption = item[1], tooltip = item[2], state = storage.checklist[i] or false}
   end
 end
 
 local function refresh_gui(p)
-  local f = p.gui.left.awe_art_panel
+  local f = p.gui.left.space_art_panel
   if not f then return end
   local inner = f.inner
   inner.summary.caption = summary_line()
   local done = 0
   for i in pairs(CHECKLIST) do if storage.checklist[i] then done = done + 1 end end
   for _, el in pairs(inner.children) do
-    if el.awe_art_checklist_title then el.awe_art_checklist_title.caption = string.format("Release checklist: %d/%d", done, #CHECKLIST) end
+    if el.space_art_checklist_title then el.space_art_checklist_title.caption = string.format("Release checklist: %d/%d", done, #CHECKLIST) end
   end
   for _, size in pairs(SIZES) do
     for _, c in pairs(CAUSES) do
@@ -255,15 +255,15 @@ local function refresh_gui(p)
   end
   local ctl, lv = inner.controls, storage.levels
   for _, el in pairs(ctl.children) do
-    if el.awe_art_damage_readout then el.awe_art_damage_readout.caption = string.format("%d (+%d%%)", lv.damage, 10 * lv.damage) end
-    if el.awe_art_rate_readout then el.awe_art_rate_readout.caption = string.format("%d (+%d%%)", lv.rate, 100 * lv.rate) end
-    if el.awe_art_min_size then
+    if el.space_art_damage_readout then el.space_art_damage_readout.caption = string.format("%d (+%d%%)", lv.damage, 10 * lv.damage) end
+    if el.space_art_rate_readout then el.space_art_rate_readout.caption = string.format("%d (+%d%%)", lv.rate, 100 * lv.rate) end
+    if el.space_art_min_size then
       for i, s in pairs(SIZES) do
-        if s == settings.global["awe-art-min-size"].value and el.awe_art_min_size.selected_index ~= i then el.awe_art_min_size.selected_index = i end
+        if s == settings.global["space-art-min-size"].value and el.space_art_min_size.selected_index ~= i then el.space_art_min_size.selected_index = i end
       end
     end
     for _, v in pairs(SPEEDS) do
-      local btn = el["awe_art_speed_" .. v]
+      local btn = el["space_art_speed_" .. v]
       if btn then btn.toggled = (storage.forced_speed or 0) == v end
     end
   end
@@ -273,30 +273,30 @@ local function refresh_all() for _, p in pairs(game.connected_players) do refres
 
 script.on_event(defines.events.on_gui_click, function(e)
   local name = e.element.valid and e.element.name or ""
-  if not name:find("^awe_art_") then return end
+  if not name:find("^space_art_") then return end
   local p = game.get_player(e.player_index)
   local lv = storage.levels
-  local speed = name:match("^awe_art_speed_(%d+)$")
+  local speed = name:match("^space_art_speed_(%d+)$")
   if speed then
     speed = tonumber(speed)
     storage.forced_speed = speed > 0 and speed or nil
     game.print(speed > 0 and ("Platform speed forced to " .. speed) or "Platform speed back to thrusters")
-  elseif name == "awe_art_damage_plus" then lv.damage = lv.damage + 5; apply_research()
-  elseif name == "awe_art_damage_minus" then lv.damage = math.max(0, lv.damage - 5); apply_research()
-  elseif name == "awe_art_rate_plus" then lv.rate = lv.rate + 1; apply_research()
-  elseif name == "awe_art_rate_minus" then lv.rate = math.max(0, lv.rate - 1); apply_research()
-  elseif name == "awe_art_add_computer" then
+  elseif name == "space_art_damage_plus" then lv.damage = lv.damage + 5; apply_research()
+  elseif name == "space_art_damage_minus" then lv.damage = math.max(0, lv.damage - 5); apply_research()
+  elseif name == "space_art_rate_plus" then lv.rate = lv.rate + 1; apply_research()
+  elseif name == "space_art_rate_minus" then lv.rate = math.max(0, lv.rate - 1); apply_research()
+  elseif name == "space_art_add_computer" then
     local s = storage.platform.surface
-    local pos = s.find_non_colliding_position("awe-art-targeting-computer", COMPUTER_POS, 8, 0.5)
-    local c = pos and s.create_entity{name = "awe-art-targeting-computer", position = pos, force = "player", raise_built = true}
+    local pos = s.find_non_colliding_position("space-art-targeting-computer", COMPUTER_POS, 8, 0.5)
+    local c = pos and s.create_entity{name = "space-art-targeting-computer", position = pos, force = "player", raise_built = true}
     p.print(c and string.format("Targeting computer placed at (%.1f, %.1f).", pos.x, pos.y) or "No free spot near the hub.")
-  elseif name == "awe_art_give_computers" then
+  elseif name == "space_art_give_computers" then
     local hub = storage.platform.hub
-    local n = hub and hub.valid and hub.get_inventory(defines.inventory.hub_main).insert{name = "awe-art-targeting-computer", count = 5} or 0
+    local n = hub and hub.valid and hub.get_inventory(defines.inventory.hub_main).insert{name = "space-art-targeting-computer", count = 5} or 0
     p.print(n .. " targeting computers put into the hub.")
-  elseif name == "awe_art_shot" or name == "awe_art_shot_ui" then
-    local path = string.format("space-artillery-%d%s.png", game.tick, name == "awe_art_shot_ui" and "-ui" or "")
-    game.take_screenshot{player = p, resolution = {1920, 1080}, show_gui = name == "awe_art_shot_ui", path = path}
+  elseif name == "space_art_shot" or name == "space_art_shot_ui" then
+    local path = string.format("space-artillery-%d%s.png", game.tick, name == "space_art_shot_ui" and "-ui" or "")
+    game.take_screenshot{player = p, resolution = {1920, 1080}, show_gui = name == "space_art_shot_ui", path = path}
     p.print("Screenshot saved: script-output/" .. path)
   end
   refresh_all()
@@ -304,7 +304,7 @@ end)
 
 script.on_event(defines.events.on_gui_selection_state_changed, function(e)
   local el = e.element
-  if el.name ~= "awe_art_min_size" then return end
+  if el.name ~= "space_art_min_size" then return end
   remote.call("space-artillery", "set_min_size", SIZES[el.selected_index])
   game.print("Artillery now targets " .. SIZES[el.selected_index] .. " asteroids and up.")
   refresh_all()
@@ -312,22 +312,22 @@ end)
 
 script.on_event(defines.events.on_gui_checked_state_changed, function(e)
   local el = e.element
-  local check = tonumber(el.name:match("^awe_art_check_(%d+)$"))
+  local check = tonumber(el.name:match("^space_art_check_(%d+)$"))
   if check then
     storage.checklist[check] = el.state
     for _, p in pairs(game.connected_players) do
-      local f = p.gui.left.awe_art_panel
+      local f = p.gui.left.space_art_panel
       if f and f.inner[el.name] then f.inner[el.name].state = el.state end
     end
     return refresh_all()
   end
-  if el.name == "awe_art_refill" then storage.refill = el.state
-  elseif el.name == "awe_art_debug" then
+  if el.name == "space_art_refill" then storage.refill = el.state
+  elseif el.name == "space_art_debug" then
     storage.debug = el.state
     remote.call("space-artillery", "set_debug", el.state)
   else return end
   for _, p in pairs(game.connected_players) do
-    local f = p.gui.left.awe_art_panel
+    local f = p.gui.left.space_art_panel
     if f then
       for _, row in pairs(f.inner.controls.children) do
         if row[el.name] then row[el.name].state = el.state end
@@ -392,9 +392,9 @@ local function test_geometry_and_gui(comp)
   local p = game.players[1]
   if p then
     remote.call("space-artillery", "open_computer", p.index, comp.unit_number)
-    local f = p.gui.screen.awe_art_tc
+    local f = p.gui.screen.space_art_tc
     if f and f.valid then
-      local cb_small = f.inside.body.sizes_row.sizes_left["awe_art_tc_size_small"]
+      local cb_small = f.inside.body.sizes_row.sizes_left["space_art_tc_size_small"]
       if cb_small and cb_small.valid then
         cb_small.state = false
         remote.call("space-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
@@ -465,11 +465,11 @@ end
 local TECH_CHECKS = {
   -- the computer and steel shell technologies, recipes and prerequisites
   {"prototypes", function()
-    local tech = prototypes.technology["awe-art-targeting-computer"]
-    local shell_tech = prototypes.technology["awe-art-steel-artillery-shell"]
-    local recipe = prototypes.recipe["awe-art-targeting-computer"]
-    local fhs = prototypes.recipe["awe-art-flash-hardened-steel"]
-    local shell = prototypes.recipe["awe-art-steel-artillery-shell"]
+    local tech = prototypes.technology["space-art-targeting-computer"]
+    local shell_tech = prototypes.technology["space-art-steel-artillery-shell"]
+    local recipe = prototypes.recipe["space-art-targeting-computer"]
+    local fhs = prototypes.recipe["space-art-flash-hardened-steel"]
+    local shell = prototypes.recipe["space-art-steel-artillery-shell"]
     local prereqs = {}
     for name in pairs(tech.prerequisites) do prereqs[#prereqs + 1] = name end
     table.sort(prereqs)
@@ -480,44 +480,44 @@ local TECH_CHECKS = {
     for _, i in pairs(fhs.ingredients) do say("fhs ingredient %s x%d", i.name, i.amount) end
     for _, i in pairs(shell.ingredients) do say("shell ingredient %s x%d", i.name, i.amount) end
     local r = game.forces.player.recipes
-    local enabled = r["awe-art-targeting-computer"].enabled or r["awe-art-flash-hardened-steel"].enabled
-      or r["awe-art-steel-artillery-shell"].enabled
+    local enabled = r["space-art-targeting-computer"].enabled or r["space-art-flash-hardened-steel"].enabled
+      or r["space-art-steel-artillery-shell"].enabled
     say("any recipe enabled at start: %s; fhs allow_productivity=%s", tostring(enabled), tostring(fhs.allowed_effects and fhs.allowed_effects.productivity))
     return not enabled and fhs ~= nil and shell ~= nil and shell_tech ~= nil
       and fhs.categories[1] ~= nil and shell.categories[1] ~= nil
-      and shell_tech.prerequisites["awe-art-asteroid-ballistics"] ~= nil
+      and shell_tech.prerequisites["space-art-asteroid-ballistics"] ~= nil
       and tech.prerequisites["electromagnetic-science-pack"] ~= nil
       and tech.prerequisites["metallurgic-science-pack"] ~= nil
   end},
   -- the scripted research trigger: research prerequisite, then kill 500 medium/big/huge asteroids with artillery
   {"ballistics trigger", function(pf)
     local f = game.forces.player
-    f.technologies["awe-art-targeting-computer"].researched = true
+    f.technologies["space-art-targeting-computer"].researched = true
     local s, turret = pf.surface, artillery()[1]
     local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
     for i = 1, 500 do
       if i == 500 then
         say("before final kill: ballistics=%s saved_progress=%.3f",
-          tostring(f.technologies["awe-art-asteroid-ballistics"].researched),
-          f.technologies["awe-art-asteroid-ballistics"].saved_progress)
+          tostring(f.technologies["space-art-asteroid-ballistics"].researched),
+          f.technologies["space-art-asteroid-ballistics"].saved_progress)
       end
       local a = s.create_entity{name = kinds[(i - 1) % #kinds + 1], position = {0, -80}, force = "enemy"}
       a.die(f, turret)
     end
-    local ballistics_done = f.technologies["awe-art-asteroid-ballistics"].researched
-    local shell_auto = f.technologies["awe-art-steel-artillery-shell"].researched
+    local ballistics_done = f.technologies["space-art-asteroid-ballistics"].researched
+    local shell_auto = f.technologies["space-art-steel-artillery-shell"].researched
     say("after 500 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
     return ballistics_done and not shell_auto
   end},
-  -- promethium ballistics trigger: research awe-art-steel-artillery-shell, then crack 1 promethium asteroid
+  -- promethium ballistics trigger: research space-art-steel-artillery-shell, then crack 1 promethium asteroid
   {"promethium trigger", function(pf)
     local f = game.forces.player
-    f.technologies["awe-art-steel-artillery-shell"].researched = true
+    f.technologies["space-art-steel-artillery-shell"].researched = true
     local pa = pf.surface.create_entity{name = "big-promethium-asteroid", position = {0, -80}, force = "enemy"}
     pa.die(f, artillery()[1])
-    local prom_ballistics_done = f.technologies["awe-art-promethium-ballistics"].researched
-    local prom_shell_auto = f.technologies["awe-art-promethium-artillery-shell"].researched
-    local prom_tech = prototypes.technology["awe-art-promethium-artillery-shell"]
+    local prom_ballistics_done = f.technologies["space-art-promethium-ballistics"].researched
+    local prom_shell_auto = f.technologies["space-art-promethium-artillery-shell"].researched
+    local prom_tech = prototypes.technology["space-art-promethium-artillery-shell"]
     say("after 1 promethium kill: prom_ballistics=%s prom_shell_auto=%s cost=%d",
       tostring(prom_ballistics_done), tostring(prom_shell_auto), prom_tech and prom_tech.research_unit_count or 0)
     return prom_ballistics_done and not prom_shell_auto and prom_tech.research_unit_count == 4000
@@ -525,23 +525,23 @@ local TECH_CHECKS = {
   -- turning speed research upgrades turrets and preserves shells
   {"rotation upgrade", function(pf)
     local base_rot = prototypes.entity["artillery-turret"].turret_rotation_speed
-    game.forces.player.technologies["awe-art-artillery-rotation-1"].researched = true
+    game.forces.player.technologies["space-art-artillery-rotation-1"].researched = true
     local upgraded = pf.surface.find_entities_filtered{type = "artillery-turret"}[1]
     local new_rot = upgraded and upgraded.prototype.turret_rotation_speed or 0
     local ammo = upgraded and upgraded.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell") or 0
     say("rotation upgrade: %s rot %.5f -> %.5f ammo=%d", upgraded and upgraded.name or "nil", base_rot, new_rot, ammo)
 
-    local rot_tech = prototypes.technology["awe-art-artillery-rotation-1"]
-    local vel_tech = prototypes.technology["awe-art-artillery-shell-velocity-1"]
+    local rot_tech = prototypes.technology["space-art-artillery-rotation-1"]
+    local vel_tech = prototypes.technology["space-art-artillery-shell-velocity-1"]
     say("rot_tech cost=%d vel_tech formula=%s", rot_tech.research_unit_count, tostring(vel_tech and vel_tech.research_unit_count_formula))
     return rot_tech.research_unit_count == 2000 and vel_tech ~= nil
       and math.abs(base_rot - 0.001) < 1e-6 and math.abs(new_rot - 0.0013) < 1e-6 and ammo == 15
   end},
   -- descriptions that take their numbers from constants.lua (printed for review)
   {"descriptions", function()
-    for _, proto in pairs{prototypes.item["awe-art-steel-artillery-shell"], prototypes.item["awe-art-promethium-artillery-shell"],
-      prototypes.technology["awe-art-asteroid-ballistics"], prototypes.technology["awe-art-artillery-rotation-1"],
-      prototypes.technology["awe-art-artillery-shell-velocity-1"]} do
+    for _, proto in pairs{prototypes.item["space-art-steel-artillery-shell"], prototypes.item["space-art-promethium-artillery-shell"],
+      prototypes.technology["space-art-asteroid-ballistics"], prototypes.technology["space-art-artillery-rotation-1"],
+      prototypes.technology["space-art-artillery-shell-velocity-1"]} do
       localised_print{"", "[PLAYTEST] ", proto.name, ": ", proto.factoriopedia_description}
     end
     return true
@@ -549,7 +549,7 @@ local TECH_CHECKS = {
   -- every Factoriopedia / Tips & Tricks simulation loads and runs one step without error
   {"simulations", function()
     local ok = true
-    for sim_name, code in pairs(prototypes.mod_data["awe-art-sims"].data) do
+    for sim_name, code in pairs(prototypes.mod_data["space-art-sims"].data) do
       local body = code:gsub('require%("__core__/lualib/story"%)', "")
       local env = setmetatable({
         story_elapsed_check = function() return function() return true end end,
@@ -676,11 +676,11 @@ end
 CASES["tc-blueprint"] = function(e, pf)
   if e.tick ~= 5 then return end
   local src = remote.call("space-artillery", "computer_cfg", storage.computer.unit_number)
-  local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "awe-art-targeting-computer",
+  local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "space-art-targeting-computer",
     position = {-6.5, -18.5}, force = "player", raise_built = true}
   for _, p in pairs(game.players) do
     p.opened = ghost
-    say("opened ghost -> gui=%s", tostring(p.gui.screen.awe_art_tc ~= nil))
+    say("opened ghost -> gui=%s", tostring(p.gui.screen.space_art_tc ~= nil))
   end
   remote.call("space-artillery", "set_computer_cfg", ghost.unit_number, src)
   local _, built = ghost.revive{raise_revive = true}
@@ -767,12 +767,12 @@ script.on_init(function()
     storage.case = arg:match("^(%S+)")
     storage.test_until = tonumber(arg:match("%s(%d+)")) or 3600
   end
-  storage.shell = storage.case == "steel-shell" and "awe-art-steel-artillery-shell" or "artillery-shell"
+  storage.shell = storage.case == "steel-shell" and "space-art-steel-artillery-shell" or "artillery-shell"
   if storage.case ~= "tech" then
     local f = game.forces.player
-    if f.technologies["awe-art-targeting-computer"] then f.technologies["awe-art-targeting-computer"].researched = true end
-    if f.technologies["awe-art-artillery-rotation-4"] then f.technologies["awe-art-artillery-rotation-4"].researched = true end
-    if f.technologies["awe-art-artillery-shell-velocity-1"] then f.technologies["awe-art-artillery-shell-velocity-1"].level = 5 end
+    if f.technologies["space-art-targeting-computer"] then f.technologies["space-art-targeting-computer"].researched = true end
+    if f.technologies["space-art-artillery-rotation-4"] then f.technologies["space-art-artillery-rotation-4"].researched = true end
+    if f.technologies["space-art-artillery-shell-velocity-1"] then f.technologies["space-art-artillery-shell-velocity-1"].level = 5 end
     storage.levels.rate = 1
     apply_research()
   end
@@ -784,7 +784,7 @@ script.on_init(function()
     s.create_entity{name = "big-metallic-asteroid", position = {-30, -100}, force = "enemy"}
     s.create_entity{name = "huge-metallic-asteroid", position = {30, -100}, force = "enemy"}
   end
-  if arg then say("update interval %d ticks", settings.global["awe-art-update-interval"].value) end
+  if arg then say("update interval %d ticks", settings.global["space-art-update-interval"].value) end
   if arg and storage.case:find("^perf") then
     storage.forced_speed = tonumber(storage.case:match("%-s(%d+)")) or 10
     say("forced platform speed %d", storage.forced_speed)

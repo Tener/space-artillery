@@ -6,14 +6,14 @@ local COMMON = [[
   local player = game.simulation.create_test_player{name = "Spaceman"}
   local force = player.force
   local s
-  local FHS = "awe-art-flash-hardened-steel"
-  local STEEL, PROM = "awe-art-steel-artillery-shell", "awe-art-promethium-artillery-shell"
+  local FHS = "space-art-flash-hardened-steel"
+  local STEEL, PROM = "space-art-steel-artillery-shell", "space-art-promethium-artillery-shell"
   local SHELL_INPUTS = {[FHS] = 6, explosives = 20, radar = 5}
 
   local function research(damage, speed, velocity)
     force.set_ammo_damage_modifier("artillery-shell", damage)
     force.set_gun_speed_modifier("artillery-shell", speed)
-    local tech = force.technologies["awe-art-artillery-shell-velocity-1"]
+    local tech = force.technologies["space-art-artillery-shell-velocity-1"]
     if tech then tech.level = velocity end
   end
 
@@ -154,7 +154,7 @@ M.space = simulation[[
     stock(make("gun-turret", pos), {["piercing-rounds-magazine"] = 50})
   end
 
-  local comp = make("awe-art-targeting-computer", {0.5, -10.5})
+  local comp = make("space-art-targeting-computer", {0.5, -10.5})
   wire(make("constant-combinator", {3.5, -10.5}), comp)
 
   local wave = {
@@ -227,7 +227,7 @@ M.steel = simulation[[
   assert(turret_steel, "turret_steel nil")
   stock(turret_steel, {[STEEL] = 15})
 
-  -- Shell Foundry (casts awe-art-steel-artillery-shell)
+  -- Shell Foundry (casts space-art-steel-artillery-shell)
   local a_sh = make("foundry", {7.5, -6.5}, nil, STEEL)
   assert(a_sh, "a_sh nil")
   -- Inserter picks up from South (foundry at -6.5), drops into North (turret at -12.5)
@@ -237,7 +237,7 @@ M.steel = simulation[[
   -- Inserter picks up from East (chest at 11.5), drops into West (foundry at 7.5)
   make("fast-inserter", {10.5, -6.5}, defines.direction.east)
 
-  -- FHS Foundry (casts awe-art-flash-hardened-steel from molten iron + asteroid carbon/calcite/ice)
+  -- FHS Foundry (casts space-art-flash-hardened-steel from molten iron + asteroid carbon/calcite/ice)
   local a_fhs = make("foundry", {1.5, -6.5}, nil, FHS)
   assert(a_fhs, "a_fhs nil")
   -- Inserter picks up from West (FHS foundry at 1.5), drops into East (Shell foundry at 7.5)
@@ -252,7 +252,7 @@ M.steel = simulation[[
   make("pipe", {0.5, -3.5})
 
   -- Targeting Computer between cannons
-  local comp = make("awe-art-targeting-computer", {0, -12.5})
+  local comp = make("space-art-targeting-computer", {0, -12.5})
 
   local function stock_craft()
     configure(comp)
@@ -314,7 +314,7 @@ M.prom = simulation[[
   -- Inserter picks up from South (chest at -9.5), drops into North (turret at -12.5)
   make("fast-inserter", {-7.5, -10.5}, defines.direction.south)
 
-  local comp = make("awe-art-targeting-computer", {0, -12.5})
+  local comp = make("space-art-targeting-computer", {0, -12.5})
 
   local wave = {
     {"huge-promethium-asteroid", -6, -62, 0.005, 0.025},

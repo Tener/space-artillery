@@ -8,7 +8,7 @@ local geometry = require("__space-artillery__/scripts/geometry")
 local FRAME_EVERY = 3
 local WIDTH, HEIGHT = 1280, 720
 local FOUNDATION = "space-platform-foundation"
-local SHELL = "awe-art-steel-artillery-shell"
+local SHELL = "space-art-steel-artillery-shell"
 -- What a player has soon after unlocking the mod: a few levels of each research, normal quality.
 local PROFILE = {damage = 0.3, fire_rate = 1, rotation = 2, velocity = 2,
   bullet_damage = 1, bullet_fire_rate = 0.5, origin = "vulcanus", destination = "nauvis"}
