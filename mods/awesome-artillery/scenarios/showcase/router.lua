@@ -176,6 +176,13 @@ function M.new(surface, force, bounds)
     end
   end
 
+  -- A hand-placed pipe, known to the router so other fluids keep clear of it.
+  function g.pipe(x, y, fluid)
+    g.make("pipe", point{x, y})
+    occupied[key(x, y)] = {fluid = fluid, route = true}
+    fluid_cells[key(x, y)] = fluid
+  end
+
   local function fluid_ports(entity, fluid, output)
     local result = {}
     for index = 1, entity.fluids_count do

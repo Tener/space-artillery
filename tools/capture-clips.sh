@@ -35,7 +35,7 @@ manifest = json.loads((frames_dir / 'manifest.json').read_text())
 fps = manifest['fps']
 takes = {take['name']: take for take in manifest['takes']}
 events = manifest['events']
-CAMERAS = {'follow': ['follow'], 'tactical': ['tactical'], 'production': ['catch', 'cast', 'load-left', 'load-right']}
+CAMERAS = {'follow': ['follow'], 'tactical': ['tactical'], 'production': ['catch', 'cast', 'load']}
 
 # A missing frame fails before any loop is written.
 for take_name, cameras in CAMERAS.items():
@@ -83,21 +83,22 @@ production = takes['production']
 casts = of_kind('cast')
 loads = of_kind('load')
 shots = of_kind('fire', 'production')
-# the quickest load-then-fire of one cannon, filmed by the camera on its pair
-pairs = [(shot['tick'] - load['tick'], load['tick'], shot['tick'], load['gun'])
+# the quickest load-then-fire of one cannon
+pairs = [(shot['tick'] - load['tick'], load['tick'], shot['tick'])
          for load in loads for shot in shots if shot.get('gun') == load['gun'] and shot['tick'] >= load['tick']]
 if not (casts and pairs):
     raise SystemExit('production: missing a cast, or a cannon loaded and then firing')
-_, load_tick, shot_tick, gun = min(pairs)
+_, load_tick, shot_tick = min(pairs)
 clips['production'] = [
     segment('catch', 'production', production['first'], production['first'] + 3 * 60),
     segment('cast', 'production', casts[0]['tick'] - 120, casts[0]['tick'] + 60),
-    segment('load-left' if gun <= 2 else 'load-right', 'production', max(load_tick - 60, shot_tick - 4 * 60), shot_tick + 60),
+    segment('load', 'production', max(load_tick - 60, shot_tick - 4 * 60), shot_tick + 60),
 ]
 
-# Starfield noise and dithering are what make these GIFs large: denoise, few colours, no dither.
-GIF = ('fps=10,scale=520:-1:flags=lanczos,hqdn3d=4:4:6:6,split[a][b];[a]palettegen=max_colors=56:stats_mode=diff[p];'
-       '[b][p]paletteuse=dither=none:diff_mode=rectangle')
+# Starfield noise and heavy dithering are what make these GIFs large; a light dither keeps the
+# gradients without the bulk.
+GIF = ('fps=12.5,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];'
+       '[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle')
 for name, segments in clips.items():
     inputs = []
     for camera, first, count, rate in segments:
