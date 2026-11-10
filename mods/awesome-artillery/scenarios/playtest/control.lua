@@ -788,6 +788,12 @@ script.on_event(defines.events.on_tick, function(e)
     local vel_tech = prototypes.technology["awe-art-artillery-shell-velocity-1"]
     say("rot_tech cost=%d vel_tech formula=%s", rot_tech.research_unit_count, tostring(vel_tech and vel_tech.research_unit_count_formula))
 
+    -- Descriptions that take their numbers from constants.lua
+    for _, proto in pairs{prototypes.item["awe-art-steel-artillery-shell"], prototypes.item["awe-art-promethium-artillery-shell"],
+      prototypes.technology["awe-art-asteroid-ballistics"], rot_tech, vel_tech} do
+      localised_print{"", "[PLAYTEST] ", proto.name, ": ", proto.factoriopedia_description}
+    end
+
     -- Execute all 4 Factoriopedia / Tips & Tricks simulations to verify zero runtime/placement errors
     local sims = prototypes.mod_data["awe-art-sims"].data
     for sim_name, code in pairs(sims) do

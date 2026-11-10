@@ -6,16 +6,13 @@
 --    current barrel orientation to eliminate unnecessary swivel latencies.
 -- 3. In-flight damage tracking: avoids wasting shells on asteroids already doomed.
 
+local balance = require("constants")
 local computer = require("scripts.computer")
 local targeting = require("scripts.targeting")
 
 local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
-local SHELLS = {
-  ["artillery-shell"] = {physical = 1000, explosion = 1000},
-  ["awe-art-steel-artillery-shell"] = {physical = 200, explosion = 800},
-  ["awe-art-promethium-artillery-shell"] = {physical = 4000, explosion = 1000},
-}
+local SHELLS = balance.shells
 local BLAST_RADIUS = 4
 local FOUNDATION = "space-platform-foundation"
 local BUILD_FILTER = {
@@ -26,9 +23,10 @@ local BUILD_FILTER = {
 local ASTEROID_FILTER = {{filter = "type", type = "asteroid"}}
 local BALLISTICS_TECH = "awe-art-asteroid-ballistics"
 local PROMETHIUM_BALLISTICS_TECH = "awe-art-promethium-ballistics"
-local BALLISTICS_KILLS = 500
+local BALLISTICS_KILLS = balance.ballistics_kills
 local BALLISTICS_CHUNKS = {"metallic-asteroid-chunk", "carbonic-asteroid-chunk", "oxide-asteroid-chunk"}
-local MAX_ROTATION_LEVEL = 10
+local MAX_ROTATION_LEVEL = balance.rotation_levels
+local VELOCITY_STEP = balance.velocity_percent / 100
 
 local function constants()
   if not storage.const then
@@ -69,7 +67,7 @@ local function shell_velocity_mult(force)
   if not tech then return 1 end
   local levels = (tech.level or 1) - 1
   if tech.researched then levels = levels + 1 end
-  return 1 + 0.2 * math.max(0, levels)
+  return 1 + VELOCITY_STEP * math.max(0, levels)
 end
 
 local function sync_turret_rotation(t)
