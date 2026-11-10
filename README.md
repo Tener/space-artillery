@@ -11,20 +11,27 @@ The mod adds steel and promethium artillery shells cast in space, plus research
 for turret rotation speed and shell velocity. Computer settings persist in
 blueprints and can be configured on ghosts before construction.
 
-[![Follow an artillery shell from the cannon to an asteroid interception](docs/clip-follow.gif)](docs/clip-follow.mp4)
-
 ## Showcases
 
-| Recording | What it shows | Watch |
-| --- | --- | --- |
-| Shell follow | One cannon firing, the shell's flight slowed to a third of real time, and the interception. | [MP4](docs/clip-follow.mp4) · [GIF](docs/clip-follow.gif) |
-| Sector control | The firing sector narrows and turns left while artillery intercepts asteroids inside it. | [MP4](docs/clip-tactical.mp4) · [GIF](docs/clip-tactical.gif) |
-| Production | Asteroid collection, shell casting, and loading and firing, with alt-mode enabled. | [MP4](docs/clip-production.mp4) · [GIF](docs/clip-production.gif) |
-| Promethium | Promethium artillery shells breaking huge asteroids. | [MP4](docs/showcase-promethium.mp4) · [GIF](docs/showcase-promethium.gif) |
+**Shell follow** shows the launch, flight in slow motion, and interception.
 
-The compact ship in the first three clips makes its steel from collected asteroid
-chunks and casts its own shells; radars and explosives are carried as cargo.
-[Capture notes](docs/capture-notes.md) describe the setups and staged inputs.
+![The camera follows a shell from the cannon to an asteroid interception](docs/previews/shell-follow.webp)
+
+| Sector control | Compact production |
+| --- | --- |
+| ![The firing sector narrows and turns as artillery intercepts asteroids](docs/previews/sector-control.webp) | ![Collectors, foundry casting, and cannon loading in alt-mode](docs/previews/compact-production.webp) |
+
+| Battery combat | Promethium impact |
+| --- | --- |
+| ![An artillery battery intercepts incoming asteroids during flight](docs/previews/battery-combat.webp) | ![A promethium shell breaks up a huge asteroid](docs/previews/promethium-impact.webp) |
+
+| Asteroid-to-ammunition factory | Ship overview |
+| --- | --- |
+| ![Collected chunks move through crushing, component manufacture, and shell casting](docs/previews/asteroid-factory.webp) | ![Thrusters, factory, and artillery in action before a full view of the ship in flight](docs/previews/ship-overview.webp) |
+
+The compact ship casts its own shells with steel made from collected chunks.
+It carries radars and explosives as cargo. The larger factory makes its
+components and propellant onboard. [Capture notes](docs/capture-notes.md)
 
 See the [mod description](docs/mod-portal.md) for research progression, ammunition
 stats, computer controls and compatibility.
