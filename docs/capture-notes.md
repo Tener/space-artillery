@@ -7,37 +7,47 @@ an output directory to write elsewhere. Each clip has one subject, and no captio
 | Clip | What it shows | Required evidence |
 | --- | --- | --- |
 | Follow | The camera waits on one cannon, rides its shell to the marked aim point, holds on the break-up and returns. The flight is slowed to a third of real time. | A filmed shell kills its asteroid. |
-| Tactical | Far view of the bow with the computer's sector drawn; halfway through, the sector narrows and swings left. | Artillery kills in both sectors, none outside the active one. |
-| Production | Three close cuts: a collector catching chunks, the foundry casting a shell, a cannon being loaded and firing. | A shell is cast, loaded and fired during the take. |
+| Tactical | Far view of the ship with the computer's sector drawn; halfway through, the sector narrows and swings left. | Artillery kills in both sectors, none outside the active one. |
+| Production | Three close cuts: the collectors and crushers at the bow, the foundry casting a shell, the hub feeding both cannons as they fire. | A shell is cast, and a cannon is loaded and then fires, during the take. |
 
 The scenario films takes longer than the published loops and records shots, kills,
 casts and loads in `manifest.json`; the script cuts each loop around those events.
 
+The ship (`scenarios/clips/ship.lua`) is about 1,100 foundation tiles and has no belts.
+Inserters only reach the hub itself, so its 32 edge tiles are the backbone: three
+collectors feed three crushers at the bow; an iron melter, the steel foundry, the shell
+foundry, two cannons and the propellant plants ring the hub, each taking ingredients from
+it and returning products until the hub's stock reaches a set level. Two cannons, one
+targeting computer, eleven gun turrets, 41 solar panels, three thrusters.
+
 Realism profile, used by every clip:
 
-- Research: artillery damage +30%, fire rate +100%, rotation II, shell velocity II.
-- Normal-quality lasers with +50% damage and fire rate; gun turrets along the
-  leading edge with +100% bullet damage and +50% fire rate.
-- Steel shells, all cast on board from collected chunks; no shell is scripted in.
-- Route: Fulgora to Aquilo, the first route with big asteroids. Asteroids are the
-  route's own; none are spawned by the scenario. The computer allows medium and larger.
-- Platform speed is held at 3 during filming.
+- Research: artillery damage +30%, fire rate +100%, rotation II, shell velocity II;
+  bullet damage +100%, fire rate +50%. Everything is normal quality, with no modules.
+- The steel in every shell is made on board from collected chunks, and every shell is
+  cast on board; none is scripted in.
+- Route: Vulcanus to Nauvis, held in the third nearest Vulcanus, where the sun still
+  powers the ship. Asteroids and chunks are the route's own; the scenario spawns none.
+  The computer allows medium and larger.
 
 Staged:
 
-- The chunk fields the collectors feed from, and indestructible entities, as in the showcase.
-- Gun turret magazines are inserted by the scenario; the factory has no magazine line.
-- The factory makes shells more slowly than four cannons spend them. Between takes
-  the ship stops and the cannons hold fire while the reserve is rebuilt at high game
-  speed; it departs and opens fire 15 seconds before each take.
-- Foundation lost while holding fire is put back before each departure. Damage taken
-  during a take is real and stays in the footage.
-- Promethium shell casting is switched off: unused shells fill the hub, one per slot.
+- Cargo a rocket would bring is put in the hub by the scenario: radars and explosives
+  for the shells, and magazines for the gun turrets.
+- Flight: the scenario places the ship on the route and holds its speed at 3. The
+  thrusters and their fuel plants are real but only burn while the shell reserve is
+  full, because ice is the scarce input and steel needs it too.
+- The ship casts shells more slowly than two cannons spend them. Before each take the
+  cannons hold fire while the reserve is rebuilt at high game speed, and open fire
+  five seconds before filming.
+- Foundation lost while holding fire is put back before the cannons open fire. Damage
+  taken during a take is real and stays in the footage.
+- Entities are indestructible.
 
 Run the checks without rendering:
 
 ```sh
-./tools/factorio-test.sh mods awesome-artillery/clips verify 100000
+./tools/factorio-test.sh mods awesome-artillery/clips verify 120000
 ```
 
 # Showcase demos

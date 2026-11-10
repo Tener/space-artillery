@@ -351,6 +351,10 @@ script.on_event(defines.events.on_tick, function(e)
       end
       if tick == take.last then
         verify_take(take)
+        if storage.cycle then -- a ride cut short by the end of the take leaves its marker behind
+          for _, object in pairs(storage.cycle.crosshair) do object.destroy() end
+          storage.cycle = nil
+        end
         storage.take = nil
         set_computer(SECTOR, true)
         game.speed = 32

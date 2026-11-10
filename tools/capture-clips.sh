@@ -97,7 +97,7 @@ clips['production'] = [
 
 # Starfield noise and heavy dithering are what make these GIFs large; a light dither keeps the
 # gradients without the bulk.
-GIF = ('fps=12.5,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];'
+GIF = ('fps=12.5,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];'
        '[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle')
 for name, segments in clips.items():
     inputs = []
