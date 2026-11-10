@@ -61,6 +61,16 @@ end
 -- display radar scanning/coverage distance in its tooltip or Factoriopedia.
 do
   local gfx = "__awesome-artillery__/graphics/"
+  -- The packs every technology here costs, plus any extra ones named.
+  local function science_packs(...)
+    local list = {
+      {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
+      {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
+      {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
+    }
+    for _, name in pairs{...} do list[#list + 1] = {name, 1} end
+    return list
+  end
   local r = data.raw.radar.radar
   local c = table.deepcopy(data.raw["programmable-speaker"]["programmable-speaker"])
   c.name = "awe-art-targeting-computer"
@@ -133,20 +143,16 @@ do
     icon_size = 256,
     prerequisites = {"artillery", "electromagnetic-science-pack", "metallurgic-science-pack"},
     effects = {{type = "unlock-recipe", recipe = "awe-art-targeting-computer"}},
-    unit = {count = 1000, time = 60, ingredients = {
-      {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
-      {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
-      {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
-    }},
+    unit = {count = 1000, time = 60, ingredients = science_packs()},
   }}
 
   -- Locale text quoting a shell's damage next to the base shell's: __1__/__2__ physical and
   -- explosion of the shell, __3__/__4__ of the base artillery shell.
-  local function damage_text(key, shell_name)
+  local function damage_text(section, shell_name)
     local d, base = constants.shells[shell_name], constants.shells["artillery-shell"]
-    return {key, tostring(d.physical), tostring(d.explosion), tostring(base.physical), tostring(base.explosion)}
+    return {section .. "." .. shell_name, tostring(d.physical), tostring(d.explosion),
+      tostring(base.physical), tostring(base.explosion)}
   end
-  local STEEL_SHELL, PROMETHIUM_SHELL = "awe-art-steel-artillery-shell", "awe-art-promethium-artillery-shell"
   local ballistics_kills = tostring(constants.ballistics_kills)
   local rotation_percent, velocity_percent = tostring(constants.rotation_percent), tostring(constants.velocity_percent)
 
@@ -165,16 +171,6 @@ do
   fhs.factoriopedia_simulation = nil
   fhs.factoriopedia_description = {"factoriopedia-description.awe-art-flash-hardened-steel"}
 
-  local proj = table.deepcopy(data.raw["artillery-projectile"]["artillery-projectile"])
-  proj.name = "awe-art-steel-artillery-projectile"
-  proj.hidden_in_factoriopedia = true
-  proj.map_color = {0.4, 0.85, 1}
-  proj.picture = {
-    filename = gfx .. "entity/projectile/steel-shell.png",
-    width = 64,
-    height = 64,
-    scale = 0.5,
-  }
   local function set_damage(t, phys, expl)
     if type(t) ~= "table" then return end
     if t.type == "damage" and t.damage then
@@ -183,37 +179,44 @@ do
     end
     for _, v in pairs(t) do set_damage(v, phys, expl) end
   end
-  set_damage(proj.action, constants.shells[STEEL_SHELL].physical, constants.shells[STEEL_SHELL].explosion)
-
-  local base_shell = data.raw.ammo["artillery-shell"]
-  local shell = table.deepcopy(base_shell)
-  shell.name = "awe-art-steel-artillery-shell"
-  shell.order = (base_shell.order or "d[explosive-cannon-shell]-d[artillery]") .. "-b[steel]"
-  shell.icon = gfx .. "icons/steel-artillery-shell.png"
-  shell.icon_size = 64
-  shell.icons = nil
-  shell.factoriopedia_simulation = nil
-  shell.factoriopedia_description = damage_text("factoriopedia-description.awe-art-steel-artillery-shell", STEEL_SHELL)
   local function set_proj(t, proj_name)
     if type(t) ~= "table" then return end
     if t.type == "artillery" and t.projectile then t.projectile = proj_name end
     for _, v in pairs(t) do set_proj(v, proj_name) end
   end
-  set_proj(shell.ammo_type, "awe-art-steel-artillery-projectile")
+  -- A copy of the base artillery shell and its projectile, with the damage constants.lua
+  -- lists for it. kind names the shell and its graphics ("steel", "promethium").
+  local base_shell = data.raw.ammo["artillery-shell"]
+  local function make_shell(kind, order, map_color, picture_scale)
+    local name = "awe-art-" .. kind .. "-artillery-shell"
+    local proj = table.deepcopy(data.raw["artillery-projectile"]["artillery-projectile"])
+    proj.name = "awe-art-" .. kind .. "-artillery-projectile"
+    proj.hidden_in_factoriopedia = true
+    proj.map_color = map_color
+    proj.picture = {
+      filename = gfx .. "entity/projectile/" .. kind .. "-shell.png",
+      width = 64,
+      height = 64,
+      scale = picture_scale,
+    }
+    set_damage(proj.action, constants.shells[name].physical, constants.shells[name].explosion)
+
+    local shell = table.deepcopy(base_shell)
+    shell.name = name
+    shell.order = (base_shell.order or "d[explosive-cannon-shell]-d[artillery]") .. "-" .. order .. "[" .. kind .. "]"
+    shell.icon = gfx .. "icons/" .. kind .. "-artillery-shell.png"
+    shell.icon_size = 64
+    shell.icons = nil
+    shell.factoriopedia_simulation = nil
+    shell.factoriopedia_description = damage_text("factoriopedia-description", name)
+    set_proj(shell.ammo_type, proj.name)
+    return shell, proj
+  end
+  local shell, proj = make_shell("steel", "b", {0.4, 0.85, 1}, 0.5)
 
   -- Heavy armor-piercing promethium artillery shell: its physical damage punches through huge
   -- asteroids' 3000 flat physical resistance even at 0% damage research.
-  local prom_proj = table.deepcopy(data.raw["artillery-projectile"]["artillery-projectile"])
-  prom_proj.name = "awe-art-promethium-artillery-projectile"
-  prom_proj.hidden_in_factoriopedia = true
-  prom_proj.map_color = {0.9, 0.3, 1}
-  prom_proj.picture = {
-    filename = gfx .. "entity/projectile/promethium-shell.png",
-    width = 64,
-    height = 64,
-    scale = 0.55,
-  }
-  set_damage(prom_proj.action, constants.shells[PROMETHIUM_SHELL].physical, constants.shells[PROMETHIUM_SHELL].explosion)
+  local prom_shell, prom_proj = make_shell("promethium", "c", {0.9, 0.3, 1}, 0.55)
   if data.raw.explosion and data.raw.explosion["massive-explosion"]
     and prom_proj.action and prom_proj.action.action_delivery and prom_proj.action.action_delivery.target_effects then
     table.insert(prom_proj.action.action_delivery.target_effects, {
@@ -222,15 +225,38 @@ do
     })
   end
 
-  local prom_shell = table.deepcopy(base_shell)
-  prom_shell.name = "awe-art-promethium-artillery-shell"
-  prom_shell.order = (base_shell.order or "d[explosive-cannon-shell]-d[artillery]") .. "-c[promethium]"
-  prom_shell.icon = gfx .. "icons/promethium-artillery-shell.png"
-  prom_shell.icon_size = 64
-  prom_shell.icons = nil
-  prom_shell.factoriopedia_simulation = nil
-  prom_shell.factoriopedia_description = damage_text("factoriopedia-description.awe-art-promethium-artillery-shell", PROMETHIUM_SHELL)
-  set_proj(prom_shell.ammo_type, "awe-art-promethium-artillery-projectile")
+  -- A technology completed by control.lua (field data), gating a shell technology.
+  local function trigger_tech(short, prerequisite, param)
+    local name = "awe-art-" .. short
+    return {
+      type = "technology", name = name,
+      icon = gfx .. "technology/" .. short .. ".png",
+      icon_size = 256,
+      factoriopedia_description = {"factoriopedia-description." .. name, param},
+      prerequisites = {prerequisite},
+      effects = {
+        {type = "nothing", effect_description = {"technology-effect." .. name}},
+      },
+      research_trigger = {
+        type = "scripted",
+        trigger_description = {"technology-trigger." .. name, param},
+      },
+    }
+  end
+  local function shell_tech(kind, prerequisites, recipes, count, ...)
+    local name = "awe-art-" .. kind .. "-artillery-shell"
+    local effects = {}
+    for _, recipe in pairs(recipes) do effects[#effects + 1] = {type = "unlock-recipe", recipe = recipe} end
+    return {
+      type = "technology", name = name,
+      icon = gfx .. "technology/" .. kind .. "-artillery-shell.png",
+      icon_size = 256,
+      factoriopedia_description = damage_text("factoriopedia-description", name),
+      prerequisites = prerequisites,
+      effects = effects,
+      unit = {count = count, time = 60, ingredients = science_packs(...)},
+    }
+  end
 
   data:extend{fhs, proj, shell, prom_proj, prom_shell, {
     type = "recipe", name = "awe-art-flash-hardened-steel", categories = {"metallurgy"}, enabled = false, energy_required = 19.2,
@@ -259,63 +285,14 @@ do
       {type = "item", name = "radar", amount = 1},
     },
     results = {{type = "item", name = "awe-art-promethium-artillery-shell", amount = 1}},
-  }, {
-    type = "technology", name = "awe-art-asteroid-ballistics",
-    icon = gfx .. "technology/asteroid-ballistics.png",
-    icon_size = 256,
-    factoriopedia_description = {"factoriopedia-description.awe-art-asteroid-ballistics", ballistics_kills},
-    prerequisites = {"awe-art-targeting-computer"},
-    effects = {
-      {type = "nothing", effect_description = {"technology-effect.awe-art-asteroid-ballistics"}},
-    },
-    research_trigger = {
-      type = "scripted",
-      trigger_description = {"technology-trigger.awe-art-asteroid-ballistics", ballistics_kills},
-    },
-  }, {
-    type = "technology", name = "awe-art-steel-artillery-shell",
-    icon = gfx .. "technology/steel-artillery-shell.png",
-    icon_size = 256,
-    factoriopedia_description = damage_text("factoriopedia-description.awe-art-steel-artillery-shell", STEEL_SHELL),
-    prerequisites = {"awe-art-asteroid-ballistics", "advanced-asteroid-processing"},
-    effects = {
-      {type = "unlock-recipe", recipe = "awe-art-flash-hardened-steel"},
-      {type = "unlock-recipe", recipe = "awe-art-steel-artillery-shell"},
-    },
-    unit = {count = 2000, time = 60, ingredients = {
-      {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
-      {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
-      {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
-    }},
-  }, {
-    type = "technology", name = "awe-art-promethium-ballistics",
-    icon = gfx .. "technology/promethium-ballistics.png",
-    icon_size = 256,
-    factoriopedia_description = {"factoriopedia-description.awe-art-promethium-ballistics"},
-    prerequisites = {"awe-art-steel-artillery-shell"},
-    effects = {
-      {type = "nothing", effect_description = {"technology-effect.awe-art-promethium-ballistics"}},
-    },
-    research_trigger = {
-      type = "scripted",
-      trigger_description = {"technology-trigger.awe-art-promethium-ballistics"},
-    },
-  }, {
-    type = "technology", name = "awe-art-promethium-artillery-shell",
-    icon = gfx .. "technology/promethium-artillery-shell.png",
-    icon_size = 256,
-    factoriopedia_description = damage_text("factoriopedia-description.awe-art-promethium-artillery-shell", PROMETHIUM_SHELL),
-    prerequisites = {"awe-art-promethium-ballistics"},
-    effects = {
-      {type = "unlock-recipe", recipe = "awe-art-promethium-artillery-shell"},
-    },
-    unit = {count = 4000, time = 60, ingredients = {
-      {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
-      {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
-      {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
-      {"agricultural-science-pack", 1}, {"cryogenic-science-pack", 1},
-    }},
-  }}
+  },
+    trigger_tech("asteroid-ballistics", "awe-art-targeting-computer", ballistics_kills),
+    shell_tech("steel", {"awe-art-asteroid-ballistics", "advanced-asteroid-processing"},
+      {"awe-art-flash-hardened-steel", "awe-art-steel-artillery-shell"}, 2000),
+    trigger_tech("promethium-ballistics", "awe-art-steel-artillery-shell"),
+    shell_tech("promethium", {"awe-art-promethium-ballistics"},
+      {"awe-art-promethium-artillery-shell"}, 4000, "agricultural-science-pack", "cryogenic-science-pack"),
+  }
 
   -- Artillery turret turning speed research (starting at 2k). Factorio has no built-in
   -- technology modifier for turret_rotation_speed, so each level uses a hidden
@@ -333,11 +310,7 @@ do
     tr.placeable_by = {item = "artillery-turret", count = 1}
     tr.minable = base_turret.minable and {mining_time = base_turret.minable.mining_time, result = "artillery-turret"} or nil
     tr.turret_rotation_speed = base_turret.turret_rotation_speed * (1 + constants.rotation_percent / 100 * level)
-    local ing = {
-      {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
-      {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
-      {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
-    }
+    local ing = science_packs()
     if level >= 4 then ing[#ing + 1] = {"cryogenic-science-pack", 1} end
     if level >= 7 then ing[#ing + 1] = {"promethium-science-pack", 1} end
     data:extend{tr, {
@@ -369,11 +342,7 @@ do
     unit = {
       count_formula = "2^(L-1)*2000",
       time = 60,
-      ingredients = {
-        {"automation-science-pack", 1}, {"logistic-science-pack", 1}, {"military-science-pack", 1},
-        {"chemical-science-pack", 1}, {"utility-science-pack", 1}, {"space-science-pack", 1},
-        {"metallurgic-science-pack", 1}, {"electromagnetic-science-pack", 1},
-      },
+      ingredients = science_packs(),
     },
     max_level = "infinite",
     upgrade = true,
@@ -929,7 +898,7 @@ do
       indent = base_indent + 1,
       order = base_order .. "-z[awe-art-b]",
       tag = "[item=awe-art-steel-artillery-shell]",
-      localised_description = damage_text("tips-and-tricks-item-description.awe-art-steel-artillery-shell", STEEL_SHELL),
+      localised_description = damage_text("tips-and-tricks-item-description", "awe-art-steel-artillery-shell"),
       dependencies = {"awe-art-space-artillery"},
       trigger = {type = "research", technology = "awe-art-steel-artillery-shell"},
       simulation = sim_steel_shell,
@@ -941,7 +910,7 @@ do
       indent = base_indent + 1,
       order = base_order .. "-z[awe-art-c]",
       tag = "[item=awe-art-promethium-artillery-shell]",
-      localised_description = damage_text("tips-and-tricks-item-description.awe-art-promethium-artillery-shell", PROMETHIUM_SHELL),
+      localised_description = damage_text("tips-and-tricks-item-description", "awe-art-promethium-artillery-shell"),
       dependencies = {"awe-art-steel-artillery-shell"},
       trigger = {type = "research", technology = "awe-art-promethium-artillery-shell"},
       simulation = sim_promethium_shell,
