@@ -11,14 +11,6 @@ local geometry = require("__awesome-artillery__/scripts/geometry")
 
 local M = {}
 
--- 16 coarse angular sectors around platform center (22.5 deg each)
-local NUM_SECTORS = 16
-local DEG_PER_SECTOR = 360 / NUM_SECTORS
-
-function M.angular_sector(dx, dy)
-  return math.floor(geometry.bearing(dx, dy) / DEG_PER_SECTOR)
-end
-
 -- The red and green circuit networks an entity is on.
 function M.circuit_networks(entity)
   local nets = {}
@@ -38,10 +30,9 @@ local function get_entity_networks(entity)
 end
 
 -- Refresh wire topology for a surface: maps each computer unit_number -> list of wired turrets,
--- and maps turret unit_number -> controlling computer unit_number (or nil if unwired).
+-- and lists the turrets wired to no computer.
 function M.update_surface_topology(surface_index, all_turrets, computers)
   local comp_to_turrets = {} -- comp_unit_number -> {turret, ...}
-  local turret_to_comp = {}   -- turret_unit_number -> comp_unit_number
   local unwired_turrets = {}
 
   -- Build map of computer network IDs
@@ -58,7 +49,6 @@ function M.update_surface_topology(surface_index, all_turrets, computers)
 
   for _, t in pairs(all_turrets) do
     if t.valid and t.surface.index == surface_index then
-      local tu = t.unit_number
       local assigned_comp = nil
       local nets = get_entity_networks(t)
       for nid in pairs(nets) do
@@ -69,7 +59,6 @@ function M.update_surface_topology(surface_index, all_turrets, computers)
       end
 
       if assigned_comp then
-        turret_to_comp[tu] = assigned_comp
         local list = comp_to_turrets[assigned_comp]
         list[#list + 1] = t
       else
@@ -80,7 +69,6 @@ function M.update_surface_topology(surface_index, all_turrets, computers)
 
   return {
     comp_to_turrets = comp_to_turrets,
-    turret_to_comp = turret_to_comp,
     unwired_turrets = unwired_turrets,
   }
 end

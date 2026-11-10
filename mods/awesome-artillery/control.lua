@@ -198,24 +198,22 @@ end
 
 local TELEPORT_MIN = 0.5
 
-local function rebuild_buckets(interval)
-  storage.buckets, storage.interval = {}, interval
-  for id, tr in pairs(storage.tracked) do
-    local slot = id % interval
-    tr.slot = slot
-    local b = storage.buckets[slot] or {}
-    b[id] = true
-    storage.buckets[slot] = b
-  end
-end
-
-local function track(id, tr)
-  storage.tracked[id] = tr
+local function assign_slot(id, tr)
   local slot = id % storage.interval
   tr.slot = slot
   local b = storage.buckets[slot] or {}
   b[id] = true
   storage.buckets[slot] = b
+end
+
+local function rebuild_buckets(interval)
+  storage.buckets, storage.interval = {}, interval
+  for id, tr in pairs(storage.tracked) do assign_slot(id, tr) end
+end
+
+local function track(id, tr)
+  storage.tracked[id] = tr
+  assign_slot(id, tr)
 end
 
 local function untrack(id)
@@ -296,7 +294,7 @@ local function update_asteroid(tr, ctx)
   if #candidate_turrets == 0 then return drop_decoy(tr) end
 
   -- Sticky orientation: candidate turret closest to this heading is chosen
-  local best_turret, angle_diff = targeting.pick_sticky_turret(candidate_turrets, ax, ay)
+  local best_turret = targeting.pick_sticky_turret(candidate_turrets, ax, ay)
   if best_turret and best_turret.valid then
     best_turret.artillery_auto_targeting = true
   end
@@ -330,16 +328,17 @@ local function scan_surface(s, turrets, interval)
     end
   end
 
-  local ctx = {s = s, force = force, interval = interval, scan_tick = game.tick, turrets = {},
+  local ctx = {s = s, force = force, interval = interval, scan_tick = game.tick,
     min_rank = SIZE_RANK[g["awe-art-min-size"].value], max_shells = g["awe-art-max-shells"].value,
     blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s), topo = topo}
   storage.ctx[s.index] = ctx
 
   local cx, cy = 0, 0
+  local positions = {}
   local has_promethium, has_tungsten, has_steel = false, false, false
   for i, t in pairs(turrets) do
     local p = t.position
-    ctx.turrets[i] = {p.x, p.y}
+    positions[i] = {p.x, p.y}
     cx, cy = cx + p.x, cy + p.y
     local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
     if inv then
@@ -352,21 +351,11 @@ local function scan_surface(s, turrets, interval)
     or ((has_tungsten or not has_steel) and "artillery-shell" or "awe-art-steel-artillery-shell")
   cx, cy = cx / #turrets, cy / #turrets
   local spread = 0
-  for _, t in pairs(ctx.turrets) do spread = math.max(spread, dist(cx, cy, t[1], t[2])) end
+  for _, t in pairs(positions) do spread = math.max(spread, dist(cx, cy, t[1], t[2])) end
   ctx.cx, ctx.cy, ctx.shell_speed, ctx.half_interval = cx, cy, c.shell_speed * shell_velocity_mult(force), interval / 2
   ctx.reach_min, ctx.reach_max = math.max(0, c.min_range - spread), range + spread
 
-  -- Get working rules mapped by computer unit_number
-  local rules_by_comp = {}
-  local present = false
-  for _, comp in pairs(storage.computers or {}) do
-    if comp.entity.valid and comp.entity.surface.index == s.index and comp.entity.name == computer.NAME then
-      present = true
-      local r = computer.effective(comp)
-      if r then rules_by_comp[comp.entity.unit_number] = r end
-    end
-  end
-
+  local rules_by_comp, present = computer.rules(s.index)
   if not present and not settings.global["awe-art-require-computer"].value then
     rules_by_comp = nil
   end
@@ -468,6 +457,11 @@ for _, ev in pairs{defines.events.on_space_platform_built_tile, defines.events.o
   script.on_event(ev, invalidate_hull)
 end
 
+local function prerequisites_researched(tech)
+  for _, p in pairs(tech.prerequisites) do if not p.researched then return false end end
+  return true
+end
+
 local function check_ballistics_tech(force)
   local tech = force.technologies[BALLISTICS_TECH]
   if tech and not tech.researched then
@@ -478,16 +472,12 @@ local function check_ballistics_tech(force)
         sum = sum + (k[chunk] or 0)
       end
       pcall(function() tech.saved_progress = math.min(0.999, sum / BALLISTICS_KILLS) end)
-      local ok = sum >= BALLISTICS_KILLS
-      for _, p in pairs(tech.prerequisites) do if not p.researched then ok = false; break end end
-      if ok then force.script_trigger_research(BALLISTICS_TECH) end
+      if sum >= BALLISTICS_KILLS and prerequisites_researched(tech) then force.script_trigger_research(BALLISTICS_TECH) end
     end
   end
   local ptech = force.technologies[PROMETHIUM_BALLISTICS_TECH]
-  if ptech and not ptech.researched and storage.promethium_killed[force.index] then
-    local ok = true
-    for _, p in pairs(ptech.prerequisites) do if not p.researched then ok = false; break end end
-    if ok then force.script_trigger_research(PROMETHIUM_BALLISTICS_TECH) end
+  if ptech and not ptech.researched and storage.promethium_killed[force.index] and prerequisites_researched(ptech) then
+    force.script_trigger_research(PROMETHIUM_BALLISTICS_TECH)
   end
 end
 

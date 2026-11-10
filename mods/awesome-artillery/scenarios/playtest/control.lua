@@ -368,11 +368,11 @@ local function test_wiring_and_targeting(pf, comp_a)
   local s = pf.surface
   local turrets = s.find_entities_filtered{type = "artillery-turret"}
 
-  -- 1. Test math helpers: angular_sector and angle_diff_deg
-  assert(targeting.angular_sector(0, -100) == 0, "North angular sector must be 0")
-  assert(targeting.angular_sector(100, 0) == 4, "East angular sector must be 4")
-  assert(targeting.angular_sector(0, 100) == 8, "South angular sector must be 8")
-  assert(targeting.angular_sector(-100, 0) == 12, "West angular sector must be 12")
+  -- 1. Test math helpers: bearing and angle_diff
+  assert(geometry.bearing(0, -100) == 0, "North bearing must be 0")
+  assert(geometry.bearing(100, 0) == 90, "East bearing must be 90")
+  assert(geometry.bearing(0, 100) == 180, "South bearing must be 180")
+  assert(geometry.bearing(-100, 0) == 270, "West bearing must be 270")
 
   assert(geometry.angle_diff(10, 350) == 20, "Diff between 10 and 350 must be 20")
   assert(geometry.angle_diff(0, 180) == 180, "Diff between 0 and 180 must be 180")
@@ -403,8 +403,6 @@ local function test_wiring_and_targeting(pf, comp_a)
   local topo1 = remote.call("awesome-artillery", "surface_topology", s.index, true)
   assert(targeting.wired_turret_count(comp_a.unit_number, topo1) == 2, "comp_a should have 2 wired turrets")
   assert(#topo1.unwired_turrets == 2, "2 turrets should remain unwired")
-  assert(topo1.turret_to_comp[turrets[1].unit_number] == comp_a.unit_number, "turret 1 mapped to comp_a")
-  assert(topo1.turret_to_comp[turrets[2].unit_number] == comp_a.unit_number, "turret 2 mapped to comp_a")
   say("wiring turrets 1 and 2 to comp_a: OK")
 
   -- 4. Create Computer B and connect Turret 3 via green wire
@@ -417,7 +415,6 @@ local function test_wiring_and_targeting(pf, comp_a)
   assert(targeting.wired_turret_count(comp_a.unit_number, topo2) == 2, "comp_a has 2 turrets")
   assert(targeting.wired_turret_count(comp_b.unit_number, topo2) == 1, "comp_b has 1 turret")
   assert(#topo2.unwired_turrets == 1, "turret 4 remains unwired")
-  assert(topo2.turret_to_comp[turrets[3].unit_number] == comp_b.unit_number, "turret 3 mapped to comp_b")
   say("wiring turret 3 to comp_b: OK")
 
   -- 5. Disconnect Turret 2 from Computer A

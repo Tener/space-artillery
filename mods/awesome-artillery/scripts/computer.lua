@@ -176,7 +176,8 @@ local function effective(c, preview)
 end
 M.effective = effective
 
--- Working rules on a surface, and whether any built computer (working or not) is there.
+-- Working rules on a surface by computer unit_number, and whether any built computer
+-- (working or not) is there.
 function M.rules(surface_index)
   local rules, present = {}, false
   for k, c in pairs(storage.computers) do
@@ -184,8 +185,7 @@ function M.rules(surface_index)
       storage.computers[k] = nil
     elseif c.entity.surface.index == surface_index and c.entity.name == M.NAME then
       present = true
-      local r = effective(c)
-      if r then rules[#rules + 1] = r end
+      rules[k] = effective(c)
     end
   end
   return rules, present
@@ -283,13 +283,15 @@ end
 
 local function get_wired_count(c)
   if not (c and c.entity and c.entity.valid) then return 0 end
-  local surface_index = c.entity.surface.index
-  local topo = storage.surface_topo and storage.surface_topo[surface_index]
-  if topo and topo.comp_to_turrets then
-    local list = topo.comp_to_turrets[c.entity.unit_number]
-    return list and #list or 0
+  local topo = storage.surface_topo and storage.surface_topo[c.entity.surface.index]
+  return targeting.wired_turret_count(c.entity.unit_number, topo)
+end
+
+local function update_status(f, c, r)
+  local subheader = f.inside and f.inside.subheader
+  if subheader and subheader.awe_art_tc_now then
+    subheader.awe_art_tc_now.caption = describe(r, get_wired_count(c))
   end
-  return 0
 end
 
 local function sync_control_states(f, c)
@@ -298,11 +300,7 @@ local function sync_control_states(f, c)
   if not body then return end
   local cfg = c.cfg
   local r = effective(c, true)
-  local wired_count = get_wired_count(c)
-
-  if f.inside.subheader and f.inside.subheader.awe_art_tc_now then
-    f.inside.subheader.awe_art_tc_now.caption = describe(r, wired_count)
-  end
+  update_status(f, c, r)
 
   -- Enable/disable manual size checkboxes when circuit min-size override is active
   local sizes_row = body.sizes_row
@@ -400,31 +398,36 @@ function M.open(p, entity)
   body.style.padding = 12
   body.style.vertical_spacing = 10
 
+  -- A filter row: manual controls on the left, then a spacer pushing the circuit override
+  -- (added by the caller) to the right edge.
+  local function filter_row(name, spacing)
+    local row = body.add{type = "flow", name = name .. "_row", direction = "horizontal"}
+    row.style.vertical_align = "center"
+    row.style.horizontally_stretchable = true
+    local left = row.add{type = "flow", name = name .. "_left", direction = "horizontal"}
+    left.style.vertical_align = "center"
+    left.style.horizontal_spacing = spacing
+    return row, left
+  end
+  local function spacer(row)
+    local sp = row.add{type = "empty-widget"}
+    sp.style.horizontally_stretchable = true
+    sp.style.minimal_width = 16
+  end
+
   -- Row 1: Sizes + circuit min-size override
-  local sizes_row = body.add{type = "flow", name = "sizes_row", direction = "horizontal"}
-  sizes_row.style.vertical_align = "center"
-  sizes_row.style.horizontally_stretchable = true
-  local sizes_left = sizes_row.add{type = "flow", name = "sizes_left", direction = "horizontal"}
-  sizes_left.style.vertical_align = "center"
-  sizes_left.style.horizontal_spacing = 10
+  local sizes_row, sizes_left = filter_row("sizes", 10)
   local sz_lbl = sizes_left.add{type = "label", caption = "Sizes", style = "bold_label",
     tooltip = "Which asteroid sizes this computer allows artillery to engage"}
   sz_lbl.style.width = 76
   for _, s in pairs(SIZES) do
     sizes_left.add{type = "checkbox", name = "awe_art_tc_size_" .. s, caption = SIZE_LABELS[s], state = c.cfg.sizes[s] or false}
   end
-  local sp1 = sizes_row.add{type = "empty-widget"}
-  sp1.style.horizontally_stretchable = true
-  sp1.style.minimal_width = 16
+  spacer(sizes_row)
   signal_toggle(sizes_row, INPUTS[1].key, c.cfg, INPUTS[1].caption, INPUTS[1].tooltip)
 
   -- Row 2: Types + circuit chunk-signals override
-  local types_row = body.add{type = "flow", name = "types_row", direction = "horizontal"}
-  types_row.style.vertical_align = "center"
-  types_row.style.horizontally_stretchable = true
-  local types_left = types_row.add{type = "flow", name = "types_left", direction = "horizontal"}
-  types_left.style.vertical_align = "center"
-  types_left.style.horizontal_spacing = 4
+  local types_row, types_left = filter_row("types", 4)
   local ty_lbl = types_left.add{type = "label", caption = "Types", style = "bold_label",
     tooltip = "Filter by asteroid chunk type. Leave all slots empty to target every asteroid type."}
   ty_lbl.style.width = 82
@@ -433,9 +436,7 @@ function M.open(p, entity)
       ["asteroid-chunk"] = c.cfg.chunks[i], tooltip = "Asteroid chunk filter (empty = any type)"}
     b.style.size = 32
   end
-  local sp2 = types_row.add{type = "empty-widget"}
-  sp2.style.horizontally_stretchable = true
-  sp2.style.minimal_width = 16
+  spacer(types_row)
   signal_toggle(types_row, "types", c.cfg, "From wire chunks",
     "When checked, any asteroid-chunk signal > 0 on the circuit wire replaces the filter slots")
 
@@ -556,21 +557,19 @@ script.on_event(defines.events.on_gui_opened, function(e)
   if M.is_computer(e.entity) then M.open(game.get_player(e.player_index), e.entity) end
 end)
 
+local function close(player_index)
+  local p = game.get_player(player_index)
+  if p.gui.screen.awe_art_tc then p.gui.screen.awe_art_tc.destroy() end
+  if storage.open_computer then storage.open_computer[player_index] = nil end
+  M.sync_zones()
+end
+
 script.on_event(defines.events.on_gui_closed, function(e)
-  if e.element and e.element.valid and e.element.name == "awe_art_tc" then
-    e.element.destroy()
-    if storage.open_computer then storage.open_computer[e.player_index] = nil end
-    M.sync_zones()
-  end
+  if e.element and e.element.valid and e.element.name == "awe_art_tc" then close(e.player_index) end
 end)
 
 script.on_event(defines.events.on_gui_click, function(e)
-  if e.element and e.element.valid and e.element.name == "awe_art_tc_close" then
-    local p = game.get_player(e.player_index)
-    if p.gui.screen.awe_art_tc then p.gui.screen.awe_art_tc.destroy() end
-    if storage.open_computer then storage.open_computer[e.player_index] = nil end
-    M.sync_zones()
-  end
+  if e.element and e.element.valid and e.element.name == "awe_art_tc_close" then close(e.player_index) end
 end)
 
 local function handle_checked_state_changed(e)
@@ -624,9 +623,7 @@ local function on_textfield_edit(e, confirm)
         save_tags(c)
         M.sync_zones()
         local f = p.gui.screen.awe_art_tc
-        if f and f.inside and f.inside.subheader and f.inside.subheader.awe_art_tc_now then
-          f.inside.subheader.awe_art_tc_now.caption = describe(effective(c, true), get_wired_count(c))
-        end
+        if f then update_status(f, c, effective(c, true)) end
       elseif confirm then
         e.element.text = tostring(c.cfg[key])
       end
