@@ -7,14 +7,20 @@ local function key(x, y) return x .. "," .. y end
 local function point(p) return {p[1] + 0.5, p[2] + 0.5} end
 local function distance(a, b) return math.abs(a[1] - b[1]) + math.abs(a[2] - b[2]) end
 
-function M.build()
+-- Combat research and defence quality of the ship. Modifiers are bonuses (3 = +300%);
+-- rotation and velocity are levels of this mod's research.
+M.SHOWCASE_PROFILE = {damage = 3, fire_rate = 3, rotation = 6, velocity = 4,
+  laser_quality = "legendary", laser_damage = 3, laser_fire_rate = 3}
+
+function M.build(profile)
+  profile = profile or M.SHOWCASE_PROFILE
   local force = game.forces.player
   for _, name in ipairs{"vulcanus", "gleba", "aquilo"} do force.unlock_space_location(name) end
   for _, recipe in pairs(force.recipes) do recipe.enabled = true end
-  for level = 1, 6 do force.technologies["awe-art-artillery-rotation-" .. level].researched = true end
-  force.technologies["awe-art-artillery-shell-velocity-1"].level = 5
-  force.set_ammo_damage_modifier("artillery-shell", 3)
-  force.set_gun_speed_modifier("artillery-shell", 3)
+  for level = 1, profile.rotation do force.technologies["awe-art-artillery-rotation-" .. level].researched = true end
+  force.technologies["awe-art-artillery-shell-velocity-1"].level = profile.velocity + 1
+  force.set_ammo_damage_modifier("artillery-shell", profile.damage)
+  force.set_gun_speed_modifier("artillery-shell", profile.fire_rate)
   force.inserter_stack_size_bonus = 6
   local platform = force.create_space_platform{
     name = "Artillery Vanguard", planet = "vulcanus", starter_pack = "space-platform-starter-pack",
@@ -111,13 +117,14 @@ function M.build()
   end
   local turrets, steel_loaders, prom_loaders = {}, {}, {}
   for i, x in ipairs{-12.5, -4.5, 4.5, 12.5} do
-    local turret = make("awe-art-artillery-turret-r6", {x, -52.5})
+    local turret = make(profile.rotation > 0 and ("awe-art-artillery-turret-r" .. profile.rotation) or "artillery-turret",
+      {x, -52.5})
     turrets[i], nodes["gun" .. i] = turret, turret
   end
   local computer = make("awe-art-targeting-computer", {0, -52})
-  for _, x in ipairs{-36, -28, 28, 36} do make("laser-turret", {x, -52}, nil, {quality = "legendary"}) end
-  force.set_ammo_damage_modifier("laser", 3)
-  force.set_gun_speed_modifier("laser", 3)
+  for _, x in ipairs{-36, -28, 28, 36} do make("laser-turret", {x, -52}, nil, {quality = profile.laser_quality}) end
+  force.set_ammo_damage_modifier("laser", profile.laser_damage)
+  force.set_gun_speed_modifier("laser", profile.laser_fire_rate)
 
   -- Reserve the hub as an obstacle even though production never uses its stock.
   local hub = platform.hub
