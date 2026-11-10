@@ -516,8 +516,9 @@ end)
 
 local function on_research_changed(e)
   storage.damage = {}
-  rescan()
-  if e.research and e.research.force then check_ballistics_tech(e.research.force) end
+  -- only rotation research changes which turret variant is wanted
+  if e.research.name:find("^awe%-art%-artillery%-rotation%-") then rescan() end
+  if e.research.force then check_ballistics_tech(e.research.force) end
 end
 script.on_event(defines.events.on_research_finished, on_research_changed)
 script.on_event(defines.events.on_research_reversed, on_research_changed)
