@@ -1,3 +1,4 @@
 .factorio-test/
 mods/mod-settings.dat
 dist/
+tmp/
