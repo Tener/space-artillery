@@ -1,11 +1,8 @@
 -- Physical production graph. Every item connection gets its own filtered
 -- inserters and belt; underground crossings preserve separate ingredients.
+local router = require("__awesome-artillery__/scenarios/showcase/router")
 local M = {}
-local DIRS = {{0, -1, defines.direction.north}, {1, 0, defines.direction.east},
-  {0, 1, defines.direction.south}, {-1, 0, defines.direction.west}}
-local function key(x, y) return x .. "," .. y end
-local function point(p) return {p[1] + 0.5, p[2] + 0.5} end
-local function distance(a, b) return math.abs(a[1] - b[1]) + math.abs(a[2] - b[2]) end
+local DIRS, key, point, distance = router.DIRS, router.key, router.point, router.distance
 
 -- Combat research, defence quality and route of the ship. Modifiers are bonuses (3 = +300%);
 -- rotation and velocity are levels of this mod's research. The ship starts at `origin` and
@@ -45,31 +42,11 @@ function M.build(profile)
   for _, y in ipairs{-33, -25, -11, 3, 15, 29} do
     surface.set_tiles{{name = "empty-space", position = {43, y}}}
   end
-  local occupied, tunnels, fluid_cells, fluid_reservations = {}, {}, {}, {}
-  local port_reservations, active_ports = {}, {}
-  local pole_forbidden, dry_access = {}, {}
-  local nodes, machines, ports, links = {}, {}, {}, {}
-  for x = -43, 43 do
-    for y = -61, 44 do
-      if surface.get_tile(x, y).name ~= "space-platform-foundation" then occupied[key(x, y)] = {solid = true} end
-    end
-  end
-
-  local function make(name, p, direction, extra)
-    local args = {name = name, position = p, force = force, direction = direction or defines.direction.north,
-      raise_built = true}
-    for k, v in pairs(extra or {}) do args[k] = v end
-    assert(surface.can_place_entity(args), "showcase blocked: " .. name .. " " .. serpent.line(p))
-    local entity = assert(surface.create_entity(args))
-    entity.destructible = false
-    local box = entity.bounding_box
-    for x = math.floor(box.left_top.x), math.ceil(box.right_bottom.x) - 1 do
-      for y = math.floor(box.left_top.y), math.ceil(box.right_bottom.y) - 1 do
-        occupied[key(x, y)] = {entity = entity, solid = true}
-      end
-    end
-    return entity
-  end
+  local g = router.new(surface, force, {-43, -61, 43, 44})
+  local occupied, port_reservations, dry_access, nodes = g.occupied, g.port_reservations, g.dry_access, g.nodes
+  local make, route, lay, fluid_link = g.make, g.route, g.lay, g.fluid_link
+  local pole_forbidden = {}
+  local machines, ports, links = {}, {}, {}
   local function machine(id, name, p, recipe, direction)
     local entity = make(name, p, direction, {recipe = recipe,
       quality = (name == "crusher" or id == "water" or id == "coal" or id == "explosives") and "legendary" or "normal"})
@@ -149,179 +126,7 @@ function M.build(profile)
     end
   end
 
-  -- Deterministic A* with underground crossings. Machine footprints cannot be
-  -- tunneled through; perpendicular tunnels may cross, parallel tunnels may not.
-  local function route(start, goal, kind, fluid, finish_dir, normal_start)
-    local heap, best, previous, states = {}, {}, {}, {}
-    local function push(state, cost, estimate, parent)
-      local id = key(state[1], state[2]) .. "," .. state[3] .. "," .. tostring(state[4])
-      if best[id] and best[id] <= cost then return end
-      best[id], previous[id], states[id] = cost, parent, state
-      local item = {id = id, cost = cost, score = cost + estimate}
-      heap[#heap + 1] = item
-      local j = #heap
-      while j > 1 do
-        local p = math.floor(j / 2)
-        if heap[p].score <= item.score then break end
-        heap[j], j = heap[p], p
-      end
-      heap[j] = item
-    end
-    local function pop()
-      local item, last = heap[1], table.remove(heap)
-      if #heap > 0 then
-        local j = 1
-        while j * 2 <= #heap do
-          local child = j * 2
-          if child < #heap and heap[child + 1].score < heap[child].score then child = child + 1 end
-          if last.score <= heap[child].score then break end
-          heap[j], j = heap[child], child
-        end
-        heap[j] = last
-      end
-      return item
-    end
-    local function free(x, y)
-      if x < -43 or x > 43 or y < -61 or y > 44 then return false end
-      local cell = occupied[key(x, y)]
-      if cell and not (kind == "pipe" and cell.fluid == fluid) then return false end
-      if kind == "belt" and port_reservations[key(x, y)] and not active_ports[key(x, y)] then return false end
-      if kind == "pipe" then
-        if dry_access[key(x, y)] then return false end
-        local reserved = fluid_reservations[key(x, y)]
-        if reserved and reserved ~= fluid then return false end
-        for _, d in ipairs(DIRS) do
-          local f = fluid_cells[key(x + d[1], y + d[2])]
-          f = f or fluid_reservations[key(x + d[1], y + d[2])]
-          if f and f ~= fluid then return false end
-        end
-      end
-      return true
-    end
-    if not free(start[1], start[2]) or not free(goal[1], goal[2]) then return end
-    push({start[1], start[2], 0, false}, 0, distance(start, goal))
-    local visited = 0
-    while #heap > 0 do
-      local entry = pop()
-      if entry.cost == best[entry.id] then
-        local state = states[entry.id]
-        visited = visited + 1
-        if visited > 100000 then return end
-        if state[1] == goal[1] and state[2] == goal[2] and
-          (not state[4] or (kind == "belt" and state[3] == finish_dir)) then
-          local path, id = {}, entry.id
-          while id do table.insert(path, 1, states[id]); id = previous[id] end
-          local seen = {}
-          for _, p in ipairs(path) do
-            local cell = key(p[1], p[2])
-            if seen[cell] then return end
-            seen[cell] = true
-          end
-          return path
-        end
-        for dir, d in ipairs(DIRS) do
-          if (not state[4] or state[3] == dir) and
-            (state[3] == 0 or dir ~= (state[3] + 1) % 4 + 1) then
-            local x, y = state[1] + d[1], state[2] + d[2]
-            if free(x, y) then
-              local cost = entry.cost + 1 + ((state[3] ~= 0 and state[3] ~= dir) and 0.3 or 0)
-              push({x, y, dir, false}, cost, distance({x, y}, goal), entry.id)
-            elseif (state[3] == dir or (state[3] == 0 and not normal_start)) and
-              not occupied[key(state[1], state[2])] then
-              local axis = d[1] == 0 and "v" or "h"
-              for length = 2, (kind == "pipe" and 10 or 11) do
-                local under_x, under_y = state[1] + d[1] * (length - 1), state[2] + d[2] * (length - 1)
-                local cell = occupied[key(under_x, under_y)]
-                if (cell and cell.solid) or tunnels[key(under_x, under_y) .. kind .. axis] then break end
-                local end_x, end_y = state[1] + d[1] * length, state[2] + d[2] * length
-                if free(end_x, end_y) and free(end_x + d[1], end_y + d[2]) then
-                  push({end_x, end_y, dir, true}, entry.cost + length + 4,
-                    distance({end_x, end_y}, goal), entry.id)
-                end
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-
-  local function lay(path, kind, fluid, finish_dir)
-    for i, p in ipairs(path) do
-      local before, after = path[i - 1], path[i + 1]
-      local input = after and distance(p, after) > 1
-      local output = before and distance(before, p) > 1
-      local dir = input and after[3] or (output and p[3] or (after and after[3] or p[3]))
-      if not after and not output and finish_dir then dir = finish_dir end
-      if dir == 0 then dir = 1 end
-      local cell = occupied[key(p[1], p[2])]
-      if not cell then
-        local name = kind == "pipe" and "pipe" or "turbo-transport-belt"
-        local extra
-        if input or output then
-          if kind == "pipe" then
-            name = "pipe-to-ground"
-            -- The open end faces the surface pipe, away from the tunnel.
-            if input then dir = (dir + 1) % 4 + 1 end
-          else
-            name = "turbo-underground-belt"
-            extra = {type = input and "input" or "output"}
-          end
-        end
-        make(name, point(p), DIRS[dir][3], extra)
-        occupied[key(p[1], p[2])] = {fluid = fluid, route = true}
-        if kind == "pipe" then fluid_cells[key(p[1], p[2])] = fluid end
-      end
-      if input then
-        local d = DIRS[after[3]]
-        for n = 0, distance(p, after) do
-          tunnels[key(p[1] + d[1] * n, p[2] + d[2] * n) .. kind .. (d[1] == 0 and "v" or "h")] = true
-        end
-      end
-    end
-  end
-
-  local function fluid_ports(entity, fluid, output)
-    local result = {}
-    for index = 1, entity.fluids_count do
-      local filter = entity.get_fluid_filter(index)
-      if filter and filter.name == fluid then
-        for _, connection in pairs(entity.get_fluid_box_pipe_connections(index) or {}) do
-          if connection.flow_direction == "input-output" or connection.flow_direction == (output and "output" or "input") then
-            result[#result + 1] = {math.floor(connection.target_position.x), math.floor(connection.target_position.y)}
-          end
-        end
-      end
-    end
-    return result
-  end
-  local function fluid_link(from, to, fluid)
-    local starts = fluid_ports(nodes[from], fluid, true)
-    for cell, name in pairs(fluid_cells) do
-      if name == fluid then
-        local x, y = cell:match("(-?%d+),(-?%d+)")
-        starts[#starts + 1] = {tonumber(x), tonumber(y)}
-      end
-    end
-    for _, b in ipairs(fluid_ports(nodes[to], fluid, false)) do
-      table.sort(starts, function(a, c) return distance(a, b) < distance(c, b) end)
-      for _, a in ipairs(starts) do
-        local path = route(a, b, "pipe", fluid)
-        if path then lay(path, "pipe", fluid); return end
-      end
-    end
-    error("no pipe route: " .. from .. " -> " .. to .. " " .. fluid)
-  end
-  for _, entity in pairs(nodes) do
-    for index = 1, entity.fluids_count do
-      local filter = entity.get_fluid_filter(index)
-      if filter then
-        for _, connection in pairs(entity.get_fluid_box_pipe_connections(index) or {}) do
-          fluid_reservations[key(math.floor(connection.target_position.x), math.floor(connection.target_position.y))] = filter.name
-        end
-      end
-    end
-  end
+  g.reserve_fluid_ports()
   for _, spec in ipairs{
     {"melt", "steel", "molten-iron"}, {"melt", "iron", "molten-iron"}, {"water", "coal", "water"},
     {"water", "explosives", "water"}, {"water", "fuel", "water"}, {"water", "oxidizer", "water"},
@@ -392,10 +197,10 @@ function M.build(profile)
       local a, b = pair[1], pair[2]
       occupied[key(a.inserter[1], a.inserter[2])] = {solid = true}
       occupied[key(b.inserter[1], b.inserter[2])] = {solid = true}
-      active_ports = {[key(a.belt[1], a.belt[2])] = true, [key(b.belt[1], b.belt[2])] = true}
+      g.active_ports = {[key(a.belt[1], a.belt[2])] = true, [key(b.belt[1], b.belt[2])] = true}
       local finish_dir = (b.dir + 1) % 4 + 1
       local path = route(a.belt, b.belt, "belt", nil, finish_dir, to:match("^gun"))
-      active_ports = {}
+      g.active_ports = {}
       occupied[key(a.inserter[1], a.inserter[2])] = nil
       occupied[key(b.inserter[1], b.inserter[2])] = nil
       if path then
@@ -517,38 +322,7 @@ function M.build(profile)
       end
     end
   end
-  -- A short spanning tree carries the same power without a mesh of long wires
-  -- crossing the production views. Circuit wires retain their separate networks.
-  local poles = surface.find_entities_filtered{type = "electric-pole", force = force}
-  table.sort(poles, function(a, b)
-    return a.position.x < b.position.x or (a.position.x == b.position.x and a.position.y < b.position.y)
-  end)
-  local connected, degree = {[1] = true}, {}
-  for i, pole in ipairs(poles) do
-    local connector = pole.get_wire_connector(defines.wire_connector_id.pole_copper, true)
-    connector.disconnect_all(defines.wire_origin.player)
-    connector.disconnect_all(defines.wire_origin.script)
-    degree[i] = 0
-  end
-  for _ = 2, #poles do
-    local best, from, to
-    for i, a in ipairs(poles) do
-      if connected[i] and degree[i] < 5 then
-        for j, b in ipairs(poles) do
-          if not connected[j] then
-            local dx, dy = a.position.x - b.position.x, a.position.y - b.position.y
-            local length = dx * dx + dy * dy
-            local reach = math.min(a.prototype.get_max_wire_distance(a.quality), b.prototype.get_max_wire_distance(b.quality))
-            if length <= reach * reach and (not best or length < best) then best, from, to = length, i, j end
-          end
-        end
-      end
-    end
-    assert(from and to, "showcase power grid is disconnected")
-    assert(poles[from].get_wire_connector(defines.wire_connector_id.pole_copper, true)
-      .connect_to(poles[to].get_wire_connector(defines.wire_connector_id.pole_copper, true)))
-    connected[to], degree[from], degree[to] = true, degree[from] + 1, degree[to] + 1
-  end
+  g.connect_poles()
 
   for id, entity in pairs(nodes) do
     if entity.type == "assembling-machine" then
