@@ -5,6 +5,8 @@
 -- sizes are 1 small ... 4 huge; both come from the data-stage catalogue, so modded asteroids work.
 
 local util = require("util")
+local geometry = require("__awesome-artillery__/scripts/geometry")
+local targeting = require("__awesome-artillery__/scripts/targeting")
 local deepcopy = util.table.deepcopy
 
 local M = {}
@@ -115,9 +117,8 @@ local function sig_key(id) return (id.type or "item") .. ":" .. id.name end
 
 local function read_signals(e)
   local out = {}
-  for _, id in pairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
-    local net = e.get_circuit_network(id)
-    for _, s in pairs(net and net.signals or {}) do
+  for _, net in pairs(targeting.circuit_networks(e)) do
+    for _, s in pairs(net.signals or {}) do
       local k = sig_key(s.signal)
       out[k] = (out[k] or 0) + s.count
     end
@@ -195,9 +196,7 @@ local function in_sector(r, x, y)
   local d = math.sqrt(dx * dx + dy * dy)
   if d < r.near or d > r.far then return false end
   if r.arc >= 360 then return true end
-  local angle = math.deg(math.atan2(dx, -dy)) % 360 -- 0 = north, clockwise
-  local diff = (angle - r.dir + 540) % 360 - 180
-  return math.abs(diff) <= r.arc / 2
+  return geometry.angle_diff(geometry.bearing(dx, dy), r.dir) <= r.arc / 2
 end
 
 function M.allows(rules, asteroid_name, x, y)

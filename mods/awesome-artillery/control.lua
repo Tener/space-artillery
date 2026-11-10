@@ -7,8 +7,8 @@
 -- 3. In-flight damage tracking: avoids wasting shells on asteroids already doomed.
 
 local balance = require("constants")
-local computer = require("scripts.computer")
-local targeting = require("scripts.targeting")
+local computer = require("__awesome-artillery__/scripts/computer")
+local targeting = require("__awesome-artillery__/scripts/targeting")
 
 local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).

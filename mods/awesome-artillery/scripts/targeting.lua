@@ -7,6 +7,8 @@
 -- 3. Pure-stickiness angular selection: matches idle cannons to incoming asteroids closest to
 --    their current barrel orientation to eliminate unnecessary swivel latencies.
 
+local geometry = require("__awesome-artillery__/scripts/geometry")
+
 local M = {}
 
 -- 16 coarse angular sectors around platform center (22.5 deg each)
@@ -14,24 +16,24 @@ local NUM_SECTORS = 16
 local DEG_PER_SECTOR = 360 / NUM_SECTORS
 
 function M.angular_sector(dx, dy)
-  -- 0 = North (dx=0, dy<0), 90 = East (dx>0, dy=0), clockwise
-  local deg = math.deg(math.atan2(dx, -dy)) % 360
-  return math.floor(deg / DEG_PER_SECTOR)
+  return math.floor(geometry.bearing(dx, dy) / DEG_PER_SECTOR)
 end
 
--- Shortest angular distance between two orientations in turns [0..1) or degrees [0..360)
-function M.angle_diff_deg(deg1, deg2)
-  return math.abs((deg1 - deg2 + 540) % 360 - 180)
+-- The red and green circuit networks an entity is on.
+function M.circuit_networks(entity)
+  local nets = {}
+  for _, id in pairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
+    local net = entity.get_circuit_network(id)
+    if net then nets[#nets + 1] = net end
+  end
+  return nets
 end
 
 -- Find all network IDs an entity is connected to on red & green wires
 local function get_entity_networks(entity)
   local nets = {}
   if not (entity and entity.valid) then return nets end
-  for _, id in pairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
-    local net = entity.get_circuit_network(id)
-    if net and net.network_id then nets[net.network_id] = true end
-  end
+  for _, net in pairs(M.circuit_networks(entity)) do nets[net.network_id] = true end
   return nets
 end
 
@@ -100,10 +102,10 @@ function M.pick_sticky_turret(turrets, aim_x, aim_y)
     if t.valid then
       local tp = t.position
       local dx, dy = aim_x - tp.x, aim_y - tp.y
-      local target_deg = math.deg(math.atan2(dx, -dy)) % 360
+      local target_deg = geometry.bearing(dx, dy)
       -- relative_turret_orientation is in [0..1), 0=North, 0.25=East, 0.5=South, 0.75=West
       local barrel_deg = ((t.relative_turret_orientation or 0) * 360) % 360
-      local diff = M.angle_diff_deg(target_deg, barrel_deg)
+      local diff = geometry.angle_diff(target_deg, barrel_deg)
       if diff < min_diff then
         min_diff = diff
         best_t = t

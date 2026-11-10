@@ -4,6 +4,7 @@
 
 local function say(fmt, ...) print("[PLAYTEST] " .. string.format(fmt, ...)) end
 
+local geometry = require("__awesome-artillery__/scripts/geometry")
 local targeting = require("__awesome-artillery__/scripts/targeting")
 
 local SPEEDS = {0, 5, 10, 20} -- 0 = let the thrusters drive (natural is about 2)
@@ -373,11 +374,11 @@ local function test_wiring_and_targeting(pf, comp_a)
   assert(targeting.angular_sector(0, 100) == 8, "South angular sector must be 8")
   assert(targeting.angular_sector(-100, 0) == 12, "West angular sector must be 12")
 
-  assert(targeting.angle_diff_deg(10, 350) == 20, "Diff between 10 and 350 must be 20")
-  assert(targeting.angle_diff_deg(0, 180) == 180, "Diff between 0 and 180 must be 180")
-  assert(targeting.angle_diff_deg(90, 270) == 180, "Diff between 90 and 270 must be 180")
-  assert(targeting.angle_diff_deg(45, 60) == 15, "Diff between 45 and 60 must be 15")
-  assert(targeting.angle_diff_deg(355, 5) == 10, "Diff between 355 and 5 must be 10")
+  assert(geometry.angle_diff(10, 350) == 20, "Diff between 10 and 350 must be 20")
+  assert(geometry.angle_diff(0, 180) == 180, "Diff between 0 and 180 must be 180")
+  assert(geometry.angle_diff(90, 270) == 180, "Diff between 90 and 270 must be 180")
+  assert(geometry.angle_diff(45, 60) == 15, "Diff between 45 and 60 must be 15")
+  assert(geometry.angle_diff(355, 5) == 10, "Diff between 355 and 5 must be 10")
   say("math assertions: OK")
 
   -- 2. Test initial topology without wires:
@@ -477,8 +478,8 @@ local function check_case()
   elseif case == "tc-zone" then
     local c = storage.computer.position
     for _, d in pairs(decoys) do
-      local angle = math.deg(math.atan2(d.x - c.x, -(d.y - c.y))) % 360
-      local off = math.abs((angle + 180) % 360 - 180)
+      local angle = geometry.bearing(d.x - c.x, d.y - c.y)
+      local off = geometry.angle_diff(angle, 0)
       if not d.name:find("^medium") or off > 45 + 0.5 then
         return string.format("decoy %s at angle %.0f° outside medium/north-90° zone", d.name, angle)
       end
@@ -678,14 +679,13 @@ script.on_event(defines.events.on_tick, function(e)
       if W.ammo[i] and n < W.ammo[i] then
         W.shots = W.shots + 1
         -- decoy whose bearing from this turret matches the barrel direction
-        local o = t.relative_turret_orientation
+        local o = t.relative_turret_orientation * 360
         local best, best_off
         for _, d in pairs(remote.call("awesome-artillery", "decoy_list")) do
-          local b = (math.atan2(d.x - t.position.x, -(d.y - t.position.y)) / (2 * math.pi)) % 1
-          local off = math.abs((b - o + 0.5) % 1 - 0.5)
+          local off = geometry.angle_diff(geometry.bearing(d.x - t.position.x, d.y - t.position.y), o)
           if not best_off or off < best_off then best, best_off = d, off end
         end
-        if best and best_off < 0.01 then
+        if best and best_off < 3.6 then
           W.matched = W.matched + 1
           local mine = (best.x - t.position.x) ^ 2 + (best.y - t.position.y) ^ 2
           local rank = 1
