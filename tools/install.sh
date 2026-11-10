@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the release zip via tools/package.sh and installs it into Factorio's mods
-# directory, removing any existing awesome-artillery_*.zip versions first.
+# directory, removing existing space-artillery_*.zip and former awesome-artillery_*.zip versions.
 # Usage: tools/install.sh [FACTORIO_MODS_DIR]
 set -euo pipefail
 
@@ -20,6 +20,7 @@ fi
 
 mkdir -p "$DEST"
 rm -f "$DEST/${MOD}_"*.zip
+rm -f "$DEST/awesome-artillery_"*.zip
 cp "$ROOT/dist/${MOD}_${VERSION}.zip" "$DEST/"
 echo "install: $DEST/${MOD}_${VERSION}.zip"
 ls -la "$DEST/${MOD}_"*.zip

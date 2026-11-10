@@ -1,9 +1,0 @@
-{
-  "name": "awesome-artillery",
-  "version": "0.1.0",
-  "title": "Awesome Artillery",
-  "author": "tener",
-  "description": "Space platform artillery engages incoming asteroids when guided by a targeting computer (sizes, types, sector zone, circuit network overrides, ghost configuration). Adds space-manufacturable steel and promethium artillery shells unlocked via field ballistics data, plus artillery turret rotation speed and shell velocity upgrade technologies.",
-  "factorio_version": "2.1",
-  "dependencies": ["base", "space-age"]
-}

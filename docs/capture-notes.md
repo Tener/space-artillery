@@ -52,7 +52,7 @@ Staged:
 Run the checks without rendering:
 
 ```sh
-./tools/factorio-test.sh mods awesome-artillery/clips verify 120000
+./tools/factorio-test.sh mods space-artillery/clips verify 120000
 ```
 
 # Showcase demos
@@ -97,7 +97,7 @@ continues during filming. Run its full production and combat checks without
 rendering:
 
 ```sh
-./tools/factorio-test.sh mods awesome-artillery/showcase verify 55000
+./tools/factorio-test.sh mods space-artillery/showcase verify 55000
 ```
 
 Frames and `manifest.json` remain under

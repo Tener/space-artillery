@@ -1,13 +1,14 @@
 #!/bin/bash
-# Builds the release zip: dist/awesome-artillery_<version>.zip, holding one folder
-# awesome-artillery_<version>/ as the mod portal expects. Test scenarios are left out.
+# Builds the release zip: dist/space-artillery_<version>.zip, holding one folder
+# space-artillery_<version>/ as the mod portal expects. Test scenarios are left out.
 # Usage: tools/package.sh
 set -euo pipefail
 
 source "$(dirname "$0")/common.sh"
 
 NAME="${MOD}_${VERSION}"
-STAGE="$(mktemp -d)"
+mkdir -p "$ROOT/tmp"
+STAGE="$(mktemp -d "$ROOT/tmp/package.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/$NAME" "$ROOT/dist"
 rsync -a --exclude scenarios --exclude '.*' "$SRC/" "$STAGE/$NAME/"

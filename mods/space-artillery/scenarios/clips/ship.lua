@@ -12,7 +12,7 @@
 --
 -- Steel is made from collected chunks. Explosives and radars are cargo: the caller stocks
 -- them in the hub, as a rocket would.
-local router = require("__awesome-artillery__/scenarios/showcase/router")
+local router = require("__space-artillery__/scenarios/showcase/router")
 local M = {}
 
 local FOUNDATION = "space-platform-foundation"

@@ -86,12 +86,12 @@ local COMMON = [[
   -- The mod's own script starts after this one, so the computer is set up on the first step.
   local configured = false
   local function configure(comp)
-    if configured or not remote.interfaces["awesome-artillery"] then return end
+    if configured or not remote.interfaces["space-artillery"] then return end
     configured = true
-    remote.call("awesome-artillery", "set_interval", 10)
-    remote.call("awesome-artillery", "set_debug", false)
+    remote.call("space-artillery", "set_interval", 10)
+    remote.call("space-artillery", "set_debug", false)
     if comp and comp.valid then
-      remote.call("awesome-artillery", "set_computer_cfg", comp.unit_number, {
+      remote.call("space-artillery", "set_computer_cfg", comp.unit_number, {
         sizes = {small = false, medium = true, big = true, huge = true},
         dir = 0, arc = 120, near = 30, far = 56,
       })
@@ -121,7 +121,7 @@ local COMMON = [[
 
 local function simulation(scene)
   return {
-    mods = {"awesome-artillery"},
+    mods = {"space-artillery"},
     hide_factoriopedia_gradient = true,
     mute_wind_sounds = false,
     init = COMMON .. scene,

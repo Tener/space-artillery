@@ -5,7 +5,7 @@
 -- sizes are 1 small ... 4 huge; both come from the data-stage catalogue, so modded asteroids work.
 
 local util = require("util")
-local geometry = require("__awesome-artillery__/scripts/geometry")
+local geometry = require("__space-artillery__/scripts/geometry")
 local deepcopy = util.table.deepcopy
 
 local M = {}

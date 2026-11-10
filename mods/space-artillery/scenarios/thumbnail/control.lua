@@ -1,6 +1,6 @@
 -- Mod thumbnail candidates: the showcase ship, with square screenshots every 5 s.
 -- Run with tools/factorio-test.sh --client (screenshots need rendering).
-require("__awesome-artillery__/scenarios/showcase/control")
+require("__space-artillery__/scenarios/showcase/control")
 
 script.on_nth_tick(300, function(e)
   local pf = storage.platform

@@ -23,7 +23,7 @@ if (( capture )); then
   # Remove only this scenario's outputs; unrelated script-output files are retained.
   find "$OUTPUT_DIR" -maxdepth 1 -type f -name '*-frame-*.png' -delete
   if [[ -f "$OUTPUT_DIR/manifest.json" ]]; then rm "$OUTPUT_DIR/manifest.json"; fi
-  "$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" "awesome-artillery/showcase" 600
+  "$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" "space-artillery/showcase" 600
 fi
 
 # A missing frame or an unresolved engagement fails before any published clip changes.

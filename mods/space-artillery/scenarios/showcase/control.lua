@@ -1,7 +1,7 @@
 -- A flying platform with asteroid-to-shell production and sustained interceptions.
 -- Resource fields and combat waves are staged; collection and manufacture are physical.
 local FRAME_EVERY = 3
-local factory_builder = require("__awesome-artillery__/scenarios/showcase/factory")
+local factory_builder = require("__space-artillery__/scenarios/showcase/factory")
 local WIDTH, HEIGHT = 1280, 720
 local WARMUP = 48000
 -- Plain data (written to the manifest); each shot's behaviour is in HOOKS below.
@@ -54,7 +54,7 @@ local function loaded_ammo()
 end
 
 local function set_computer(sizes)
-  remote.call("awesome-artillery", "set_computer_cfg", storage.computer.unit_number, {
+  remote.call("space-artillery", "set_computer_cfg", storage.computer.unit_number, {
     sizes = sizes, dir = 0, arc = 150, near = 32, far = 70,
   })
 end
@@ -352,8 +352,8 @@ script.on_event(defines.events.on_tick, function(event)
     platform.create_asteroid_chunks(chunks)
   end
   if event.tick == 1 then
-    remote.call("awesome-artillery", "set_interval", 10)
-    remote.call("awesome-artillery", "set_debug", false)
+    remote.call("space-artillery", "set_interval", 10)
+    remote.call("space-artillery", "set_debug", false)
     set_computer{small = false, medium = false, big = false, huge = false}
     if not script.test_arg then game.set_wait_for_screenshots_to_finish() end
   end

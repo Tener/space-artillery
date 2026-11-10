@@ -61,7 +61,7 @@ end
 -- so it takes electric power, connects to red/green circuit wires, opens a GUI, and doesn't
 -- display radar scanning/coverage distance in its tooltip or Factoriopedia.
 do
-  local gfx = "__awesome-artillery__/graphics/"
+  local gfx = "__space-artillery__/graphics/"
   -- The packs every technology here costs, plus any extra ones named.
   local function science_packs(...)
     local list = {
@@ -353,7 +353,7 @@ do
   local parent = tips["asteroid-defense"] or tips["space-platform"]
   local cat = parent and parent.category or (data.raw["tips-and-tricks-item-category"]["space-platform"] and "space-platform") or nil
   local base_indent = parent and (parent.indent or 0) or 1
-  local base_order = parent and (parent.order or "z") or "z[awesome-artillery]"
+  local base_order = parent and (parent.order or "z") or "z[space-artillery]"
 
   c.factoriopedia_simulation = simulations.space
   item.factoriopedia_simulation = simulations.space

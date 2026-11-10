@@ -3,7 +3,7 @@
 -- asteroid's health, so vanilla's predicted-damage check avoids wasting shells on it.
 
 local balance = require("constants")
-local computer = require("__awesome-artillery__/scripts/computer")
+local computer = require("__space-artillery__/scripts/computer")
 
 local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
@@ -477,7 +477,7 @@ commands.add_command("awe-art-debug", "Toggle drawing of artillery decoys (red c
   if p then p.print(msg) else print(msg) end
 end)
 
-remote.add_interface("awesome-artillery", {
+remote.add_interface("space-artillery", {
   decoy_count = function()
     local n = 0
     for _, tr in pairs(storage.tracked) do if tr.d and tr.d.valid then n = n + 1 end end

@@ -2,8 +2,8 @@
 -- loop; tools/capture-clips.sh cuts the loops from the takes using the events recorded here.
 -- The ship (ship.lua) casts every shell it fires from steel made of collected chunks.
 -- Headless (--test-scenario): no frames, only the checks at the end of each take.
-local ship = require("__awesome-artillery__/scenarios/clips/ship")
-local geometry = require("__awesome-artillery__/scripts/geometry")
+local ship = require("__space-artillery__/scenarios/clips/ship")
+local geometry = require("__space-artillery__/scripts/geometry")
 
 local FRAME_EVERY = 3
 local WIDTH, HEIGHT = 1280, 720
@@ -56,7 +56,7 @@ end
 
 -- hold_fire: no size allowed, so the cannons stay silent and the hub's shell reserve builds up
 local function set_computer(sector, hold_fire)
-  remote.call("awesome-artillery", "set_computer_cfg", storage.computer.unit_number, {
+  remote.call("space-artillery", "set_computer_cfg", storage.computer.unit_number, {
     sizes = {small = false, medium = not hold_fire, big = not hold_fire, huge = not hold_fire},
     dir = sector.dir, arc = sector.arc, near = sector.near, far = sector.far,
   })
@@ -87,7 +87,7 @@ end
 local function aim_point(turret)
   local barrel = turret.relative_turret_orientation * 360
   local best, best_off
-  for _, d in pairs(remote.call("awesome-artillery", "decoy_list")) do
+  for _, d in pairs(remote.call("space-artillery", "decoy_list")) do
     local off = geometry.angle_diff(geometry.bearing(d.x - turret.position.x, d.y - turret.position.y), barrel)
     if not best_off or off < best_off then best, best_off = d, off end
   end
@@ -183,7 +183,7 @@ end
 local function begin_take(take)
   storage.take = take.name
   storage.stats[take.name] = {shots = 0, kills = 0}
-  remote.call("awesome-artillery", "set_debug", take.name == "tactical")
+  remote.call("space-artillery", "set_debug", take.name == "tactical")
   if take.name == "production" then
     storage.crafted, storage.loaded, storage.reloaded = storage.shells.products_finished, {}, {}
     for i, turret in ipairs(storage.turrets) do storage.loaded[i] = ammo(turret) end
@@ -283,8 +283,8 @@ end
 script.on_event(defines.events.on_tick, function(e)
   local platform, tick = storage.platform, e.tick
   if tick == 1 then
-    remote.call("awesome-artillery", "set_interval", 10)
-    remote.call("awesome-artillery", "set_debug", false)
+    remote.call("space-artillery", "set_interval", 10)
+    remote.call("space-artillery", "set_debug", false)
     set_computer(SECTOR, true)
     if not script.test_arg then game.set_wait_for_screenshots_to_finish() end
   end

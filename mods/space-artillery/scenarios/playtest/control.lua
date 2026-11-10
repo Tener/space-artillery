@@ -4,7 +4,7 @@
 
 local function say(fmt, ...) print("[PLAYTEST] " .. string.format(fmt, ...)) end
 
-local geometry = require("__awesome-artillery__/scripts/geometry")
+local geometry = require("__space-artillery__/scripts/geometry")
 
 local SPEEDS = {0, 5, 10, 20} -- 0 = let the thrusters drive (natural is about 2)
 local SIZES = {"small", "medium", "big", "huge"}
@@ -134,7 +134,7 @@ local function summary_line()
   end
   return string.format("%d s, %d shells, %d artillery kills (%.2f per shell), %d hit the hull, %d buildings lost, %d decoys",
     math.floor((game.tick - st.start) / 60), st.shells, kills, kills / math.max(st.shells, 1), hull, st.lost,
-    remote.call("awesome-artillery", "decoy_count"))
+    remote.call("space-artillery", "decoy_count"))
 end
 
 -- controls ------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ local function apply_research()
   local f, lv = game.forces.player, storage.levels
   f.set_ammo_damage_modifier("artillery-shell", 0.1 * lv.damage)
   f.set_gun_speed_modifier("artillery-shell", 1.0 * lv.rate)
-  remote.call("awesome-artillery", "reset_damage")
+  remote.call("space-artillery", "reset_damage")
   game.print(string.format("Artillery damage +%d%%, fire rate +%d%%", 10 * lv.damage, 100 * lv.rate))
 end
 
@@ -295,7 +295,7 @@ script.on_event(defines.events.on_gui_click, function(e)
     local n = hub and hub.valid and hub.get_inventory(defines.inventory.hub_main).insert{name = "awe-art-targeting-computer", count = 5} or 0
     p.print(n .. " targeting computers put into the hub.")
   elseif name == "awe_art_shot" or name == "awe_art_shot_ui" then
-    local path = string.format("awesome-artillery-%d%s.png", game.tick, name == "awe_art_shot_ui" and "-ui" or "")
+    local path = string.format("space-artillery-%d%s.png", game.tick, name == "awe_art_shot_ui" and "-ui" or "")
     game.take_screenshot{player = p, resolution = {1920, 1080}, show_gui = name == "awe_art_shot_ui", path = path}
     p.print("Screenshot saved: script-output/" .. path)
   end
@@ -305,7 +305,7 @@ end)
 script.on_event(defines.events.on_gui_selection_state_changed, function(e)
   local el = e.element
   if el.name ~= "awe_art_min_size" then return end
-  remote.call("awesome-artillery", "set_min_size", SIZES[el.selected_index])
+  remote.call("space-artillery", "set_min_size", SIZES[el.selected_index])
   game.print("Artillery now targets " .. SIZES[el.selected_index] .. " asteroids and up.")
   refresh_all()
 end)
@@ -324,7 +324,7 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(e)
   if el.name == "awe_art_refill" then storage.refill = el.state
   elseif el.name == "awe_art_debug" then
     storage.debug = el.state
-    remote.call("awesome-artillery", "set_debug", el.state)
+    remote.call("space-artillery", "set_debug", el.state)
   else return end
   for _, p in pairs(game.connected_players) do
     local f = p.gui.left.awe_art_panel
@@ -391,14 +391,14 @@ local function test_geometry_and_gui(comp)
   -- unchecking small size must persist in config
   local p = game.players[1]
   if p then
-    remote.call("awesome-artillery", "open_computer", p.index, comp.unit_number)
+    remote.call("space-artillery", "open_computer", p.index, comp.unit_number)
     local f = p.gui.screen.awe_art_tc
     if f and f.valid then
       local cb_small = f.inside.body.sizes_row.sizes_left["awe_art_tc_size_small"]
       if cb_small and cb_small.valid then
         cb_small.state = false
-        remote.call("awesome-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
-        local cfg = remote.call("awesome-artillery", "computer_cfg", comp.unit_number)
+        remote.call("space-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
+        local cfg = remote.call("space-artillery", "computer_cfg", comp.unit_number)
         say("after unchecking small: cfg.sizes.small=%s", tostring(cfg and cfg.sizes.small))
         assert(cfg.sizes.small == false, "Small size must be false in config after unchecking!")
       end
@@ -410,7 +410,7 @@ end
 
 -- Per-case invariants, checked every second; returns an error or nil.
 local function check_case()
-  local case, decoys = storage.case, remote.call("awesome-artillery", "decoy_list")
+  local case, decoys = storage.case, remote.call("space-artillery", "decoy_list")
   if case == "tc-none" or case == "tc-unpowered" then
     if #decoys > 0 or storage.stats.shells > 0 then
       return string.format("%d decoys, %d shells without a working computer", #decoys, storage.stats.shells)
@@ -646,7 +646,7 @@ CASES["perf-who"] = function(e)
       -- decoy whose bearing from this turret matches the barrel direction
       local o = t.relative_turret_orientation * 360
       local best, best_off
-      for _, d in pairs(remote.call("awesome-artillery", "decoy_list")) do
+      for _, d in pairs(remote.call("space-artillery", "decoy_list")) do
         local off = geometry.angle_diff(geometry.bearing(d.x - t.position.x, d.y - t.position.y), o)
         if not best_off or off < best_off then best, best_off = d, off end
       end
@@ -675,16 +675,16 @@ end
 -- and a ghost can be opened and configured directly before being built
 CASES["tc-blueprint"] = function(e, pf)
   if e.tick ~= 5 then return end
-  local src = remote.call("awesome-artillery", "computer_cfg", storage.computer.unit_number)
+  local src = remote.call("space-artillery", "computer_cfg", storage.computer.unit_number)
   local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "awe-art-targeting-computer",
     position = {-6.5, -18.5}, force = "player", raise_built = true}
   for _, p in pairs(game.players) do
     p.opened = ghost
     say("opened ghost -> gui=%s", tostring(p.gui.screen.awe_art_tc ~= nil))
   end
-  remote.call("awesome-artillery", "set_computer_cfg", ghost.unit_number, src)
+  remote.call("space-artillery", "set_computer_cfg", ghost.unit_number, src)
   local _, built = ghost.revive{raise_revive = true}
-  local got = built and remote.call("awesome-artillery", "computer_cfg", built.unit_number)
+  local got = built and remote.call("space-artillery", "computer_cfg", built.unit_number)
   local a, b = serpent.line(src, {sortkeys = true}), serpent.line(got, {sortkeys = true})
   say("source cfg: %s", a)
   say("built cfg:  %s", b)
@@ -700,11 +700,11 @@ end
 
 CASES.perf = function(e)
   if e.tick == 600 then
-    remote.call("awesome-artillery", "profile_start")
+    remote.call("space-artillery", "profile_start")
     say("profiling from t=600")
   end
   if e.tick >= storage.test_until then
-    remote.call("awesome-artillery", "profile_report")
+    remote.call("space-artillery", "profile_report")
     say("%s", summary_line())
     script.finish_test(true)
   end
@@ -713,7 +713,7 @@ end
 CASES.default = function(e)
   -- decoys of rarer sizes live briefly: sample often so check_end sees them
   if e.tick % 5 == 0 then
-    for name, n in pairs(remote.call("awesome-artillery", "decoys_by_name")) do
+    for name, n in pairs(remote.call("space-artillery", "decoys_by_name")) do
       storage.observed[name] = (storage.observed[name] or 0) + n
     end
   end
@@ -758,11 +758,11 @@ script.on_init(function()
   storage.observed = {}
   storage.checklist = {}
   -- start every playtest with small asteroids targeted (a saved mod setting would win otherwise)
-  remote.call("awesome-artillery", "set_min_size", "small")
+  remote.call("space-artillery", "set_min_size", "small")
   local arg = script.test_arg
   -- update interval: from the case name ("perf-i30", "check-i60"), else the default 30
   local interval = arg and tonumber(arg:match("%-i(%d+)")) or 30
-  remote.call("awesome-artillery", "set_interval", interval)
+  remote.call("space-artillery", "set_interval", interval)
   if arg then
     storage.case = arg:match("^(%S+)")
     storage.test_until = tonumber(arg:match("%s(%d+)")) or 3600
@@ -824,12 +824,12 @@ script.on_event(defines.events.on_tick, function(e)
       if cfg.sizes then -- listed sizes only
         for _, s in pairs(SIZES) do cfg.sizes[s] = cfg.sizes[s] or false end
       end
-      remote.call("awesome-artillery", "set_computer_cfg", unit, cfg)
+      remote.call("space-artillery", "set_computer_cfg", unit, cfg)
     end
   end
   if e.tick == 2 and storage.test_until and storage.computer then
     -- build the computer's window headless so GUI mistakes fail the test
-    for _, p in pairs(game.players) do remote.call("awesome-artillery", "open_computer", p.index, storage.computer.unit_number) end
+    for _, p in pairs(game.players) do remote.call("space-artillery", "open_computer", p.index, storage.computer.unit_number) end
     say("computer window opened for %d player(s)", #game.players)
   end
   if e.tick % 60 == 0 then

@@ -3,7 +3,7 @@
 all: test
 
 test:
-	./tools/factorio-test.sh mods/ awesome-artillery/playtest tech
+	./tools/factorio-test.sh mods/ space-artillery/playtest tech
 
 package:
 	./tools/package.sh
@@ -15,4 +15,4 @@ visuals:
 	./tools/capture-visuals.sh
 
 play:
-	./tools/factorio-test.sh --play mods/ awesome-artillery/playtest
+	./tools/factorio-test.sh --play mods/ space-artillery/playtest

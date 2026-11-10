@@ -21,7 +21,7 @@ if (( capture )); then
   # Remove only this scenario's outputs; unrelated script-output files are retained.
   find "$FRAMES_DIR" -maxdepth 1 -type f -name '*-frame-*.jpg' -delete
   if [[ -f "$FRAMES_DIR/manifest.json" ]]; then rm "$FRAMES_DIR/manifest.json"; fi
-  "$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" "awesome-artillery/clips" 600
+  "$ROOT/tools/factorio-test.sh" --client "$ROOT/mods" "space-artillery/clips" 600
 fi
 
 python3 - "$FRAMES_DIR" "$OUT_DIR" <<'PY'

@@ -1,6 +1,6 @@
 -- Physical production graph. Every item connection gets its own filtered
 -- inserters and belt; underground crossings preserve separate ingredients.
-local router = require("__awesome-artillery__/scenarios/showcase/router")
+local router = require("__space-artillery__/scenarios/showcase/router")
 local M = {}
 local DIRS, key, point, distance = router.DIRS, router.key, router.point, router.distance
 
