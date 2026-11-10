@@ -517,6 +517,281 @@ local function check_end()
   end
 end
 
+-- tech: named checks, run in order (later ones build on the research earlier ones did);
+-- each returns whether it passed.
+local TECH_CHECKS = {
+  -- the computer and steel shell technologies, recipes and prerequisites
+  {"prototypes", function()
+    local tech = prototypes.technology["awe-art-targeting-computer"]
+    local shell_tech = prototypes.technology["awe-art-steel-artillery-shell"]
+    local recipe = prototypes.recipe["awe-art-targeting-computer"]
+    local fhs = prototypes.recipe["awe-art-flash-hardened-steel"]
+    local shell = prototypes.recipe["awe-art-steel-artillery-shell"]
+    local prereqs = {}
+    for name in pairs(tech.prerequisites) do prereqs[#prereqs + 1] = name end
+    table.sort(prereqs)
+    say("tech prerequisites: %s; cost %d", table.concat(prereqs, ", "), tech.research_unit_count)
+    for _, i in pairs(recipe.ingredients) do
+      say("computer ingredient %s x%d quality_min=%s", i.name, i.amount, tostring(i.quality_min))
+    end
+    for _, i in pairs(fhs.ingredients) do say("fhs ingredient %s x%d", i.name, i.amount) end
+    for _, i in pairs(shell.ingredients) do say("shell ingredient %s x%d", i.name, i.amount) end
+    local r = game.forces.player.recipes
+    local enabled = r["awe-art-targeting-computer"].enabled or r["awe-art-flash-hardened-steel"].enabled
+      or r["awe-art-steel-artillery-shell"].enabled
+    say("any recipe enabled at start: %s; fhs allow_productivity=%s", tostring(enabled), tostring(fhs.allowed_effects and fhs.allowed_effects.productivity))
+    return not enabled and fhs ~= nil and shell ~= nil and shell_tech ~= nil
+      and fhs.categories[1] ~= nil and shell.categories[1] ~= nil
+      and shell_tech.prerequisites["awe-art-asteroid-ballistics"] ~= nil
+      and tech.prerequisites["electromagnetic-science-pack"] ~= nil
+      and tech.prerequisites["metallurgic-science-pack"] ~= nil
+  end},
+  -- the scripted research trigger: research prerequisite, then kill 500 medium/big/huge asteroids with artillery
+  {"ballistics trigger", function(pf)
+    local f = game.forces.player
+    f.technologies["awe-art-targeting-computer"].researched = true
+    local s, turret = pf.surface, storage.artillery[1]
+    local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
+    for i = 1, 500 do
+      if i == 500 then
+        say("before final kill: ballistics=%s saved_progress=%.3f",
+          tostring(f.technologies["awe-art-asteroid-ballistics"].researched),
+          f.technologies["awe-art-asteroid-ballistics"].saved_progress)
+      end
+      local a = s.create_entity{name = kinds[(i - 1) % #kinds + 1], position = {0, -80}, force = "enemy"}
+      a.die(f, turret)
+    end
+    local ballistics_done = f.technologies["awe-art-asteroid-ballistics"].researched
+    local shell_auto = f.technologies["awe-art-steel-artillery-shell"].researched
+    say("after 500 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
+    return ballistics_done and not shell_auto
+  end},
+  -- promethium ballistics trigger: research awe-art-steel-artillery-shell, then crack 1 promethium asteroid
+  {"promethium trigger", function(pf)
+    local f = game.forces.player
+    f.technologies["awe-art-steel-artillery-shell"].researched = true
+    local pa = pf.surface.create_entity{name = "big-promethium-asteroid", position = {0, -80}, force = "enemy"}
+    pa.die(f, storage.artillery[1])
+    local prom_ballistics_done = f.technologies["awe-art-promethium-ballistics"].researched
+    local prom_shell_auto = f.technologies["awe-art-promethium-artillery-shell"].researched
+    local prom_tech = prototypes.technology["awe-art-promethium-artillery-shell"]
+    say("after 1 promethium kill: prom_ballistics=%s prom_shell_auto=%s cost=%d",
+      tostring(prom_ballistics_done), tostring(prom_shell_auto), prom_tech and prom_tech.research_unit_count or 0)
+    return prom_ballistics_done and not prom_shell_auto and prom_tech.research_unit_count == 4000
+  end},
+  -- turning speed research upgrades turrets and preserves shells
+  {"rotation upgrade", function(pf)
+    local base_rot = prototypes.entity["artillery-turret"].turret_rotation_speed
+    game.forces.player.technologies["awe-art-artillery-rotation-1"].researched = true
+    local upgraded = pf.surface.find_entities_filtered{type = "artillery-turret"}[1]
+    local new_rot = upgraded and upgraded.prototype.turret_rotation_speed or 0
+    local ammo = upgraded and upgraded.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell") or 0
+    say("rotation upgrade: %s rot %.5f -> %.5f ammo=%d", upgraded and upgraded.name or "nil", base_rot, new_rot, ammo)
+
+    local rot_tech = prototypes.technology["awe-art-artillery-rotation-1"]
+    local vel_tech = prototypes.technology["awe-art-artillery-shell-velocity-1"]
+    say("rot_tech cost=%d vel_tech formula=%s", rot_tech.research_unit_count, tostring(vel_tech and vel_tech.research_unit_count_formula))
+    return rot_tech.research_unit_count == 2000 and vel_tech ~= nil
+      and math.abs(base_rot - 0.001) < 1e-6 and math.abs(new_rot - 0.0013) < 1e-6 and ammo == 15
+  end},
+  -- descriptions that take their numbers from constants.lua (printed for review)
+  {"descriptions", function()
+    for _, proto in pairs{prototypes.item["awe-art-steel-artillery-shell"], prototypes.item["awe-art-promethium-artillery-shell"],
+      prototypes.technology["awe-art-asteroid-ballistics"], prototypes.technology["awe-art-artillery-rotation-1"],
+      prototypes.technology["awe-art-artillery-shell-velocity-1"]} do
+      localised_print{"", "[PLAYTEST] ", proto.name, ": ", proto.factoriopedia_description}
+    end
+    return true
+  end},
+  -- every Factoriopedia / Tips & Tricks simulation loads and runs one step without error
+  {"simulations", function()
+    local ok = true
+    for sim_name, code in pairs(prototypes.mod_data["awe-art-sims"].data) do
+      local body = code:gsub('require%("__core__/lualib/story"%)', "")
+      local env = setmetatable({
+        story_elapsed_check = function() return function() return true end end,
+        story_jump_to = function() end,
+        tip_story_init = function(t)
+          if t and t[1] then
+            for _, node in pairs(t[1]) do if node.action then node.action() end end
+          end
+        end,
+        game = setmetatable({
+          simulation = {
+            create_test_player = function() return game.players[1] or {force = game.forces.player, teleport = function() end} end,
+          },
+        }, {__index = game}),
+      }, {__index = _G})
+      local fn, err = load(body, "sim:" .. sim_name, "t", env)
+      local ran = false
+      if fn then ran, err = pcall(fn) end
+      if ran then say("sim %s: OK", sim_name) else say("SIM FAIL %s: %s", sim_name, tostring(err)); ok = false end
+    end
+    return ok
+  end},
+  {"wiring", function(pf) return test_wiring_and_targeting(pf, storage.computer) end},
+}
+
+-- Headless cases with a tick handler of their own, run after the common upkeep in on_tick.
+-- Any other case uses CASES.perf ("perf-*") or CASES.default.
+local CASES = {}
+
+CASES.tech = function(_, pf)
+  local passed = true
+  for _, check in ipairs(TECH_CHECKS) do
+    local ran, ok = pcall(check[2], pf)
+    if ran and ok then
+      say("tech/%s: OK", check[1])
+    else
+      say("FAIL tech/%s%s", check[1], ran and "" or (": " .. tostring(ok)))
+      passed = false
+    end
+  end
+  script.finish_test(passed)
+end
+
+-- vel: do existing asteroids keep their velocity when the platform changes speed?
+CASES["perf-vel"] = function(e, pf)
+  local V = storage.vel or {track = {}, changes = {}, samples = 0}
+  storage.vel = V
+  local s = pf.surface
+  if e.tick == 600 then storage.forced_speed = 20; say("t=600 platform speed 10 -> 20") end
+  if e.tick % 10 == 0 and e.tick >= 300 then
+    for _, a in pairs(s.find_entities_filtered{type = "asteroid", position = {0, 0}, radius = 200}) do
+      local id = a.unit_number
+      local p = a.position
+      local tr = V.track[id]
+      if tr then
+        local vx, vy = (p.x - tr.x) / 10, (p.y - tr.y) / 10
+        if tr.vx then
+          local dv = math.sqrt((vx - tr.vx) ^ 2 + (vy - tr.vy) ^ 2)
+          local phase = (tr.born < 600 and e.tick > 600) and "spans-change" or "steady"
+          V.changes[phase] = V.changes[phase] or {n = 0, max = 0, sum = 0}
+          local c = V.changes[phase]
+          c.n, c.max, c.sum = c.n + 1, math.max(c.max, dv), c.sum + dv
+          if tr.born < 600 and e.tick > 600 and not tr.reported and #V < 5 then
+            V[#V + 1] = true
+            tr.reported = true
+            say("asteroid %d (seen before change): v before (%.4f,%.4f) now (%.4f,%.4f)", id, tr.v0x, tr.v0y, vx, vy)
+          end
+        else
+          tr.v0x, tr.v0y = vx, vy
+        end
+        tr.x, tr.y, tr.vx, tr.vy = p.x, p.y, vx, vy
+      else
+        V.track[id] = {x = p.x, y = p.y, born = e.tick}
+      end
+    end
+  end
+  if e.tick >= storage.test_until then
+    for phase, c in pairs(V.changes) do
+      say("%s: %d samples, velocity change per 10 ticks: mean %.5f max %.5f tiles/tick", phase, c.n, c.sum / c.n, c.max)
+    end
+    script.finish_test(true)
+  end
+end
+
+-- who: when a turret fires, which decoy did it aim at, and was that turret the nearest one?
+CASES["perf-who"] = function(e)
+  local W = storage.who or {ammo = {}, shots = 0, nearest = 0, ranks = {}, matched = 0}
+  storage.who = W
+  for i, t in pairs(storage.artillery) do
+    local n = t.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell")
+    if W.ammo[i] and n < W.ammo[i] then
+      W.shots = W.shots + 1
+      -- decoy whose bearing from this turret matches the barrel direction
+      local o = t.relative_turret_orientation * 360
+      local best, best_off
+      for _, d in pairs(remote.call("awesome-artillery", "decoy_list")) do
+        local off = geometry.angle_diff(geometry.bearing(d.x - t.position.x, d.y - t.position.y), o)
+        if not best_off or off < best_off then best, best_off = d, off end
+      end
+      if best and best_off < 3.6 then
+        W.matched = W.matched + 1
+        local mine = (best.x - t.position.x) ^ 2 + (best.y - t.position.y) ^ 2
+        local rank = 1
+        for j, u in pairs(storage.artillery) do
+          if j ~= i and (best.x - u.position.x) ^ 2 + (best.y - u.position.y) ^ 2 < mine then rank = rank + 1 end
+        end
+        W.ranks[rank] = (W.ranks[rank] or 0) + 1
+      end
+    end
+    W.ammo[i] = n
+  end
+  if e.tick >= storage.test_until then
+    local parts = {}
+    for r = 1, #storage.artillery do parts[#parts + 1] = string.format("rank %d: %d", r, W.ranks[r] or 0) end
+    say("shots=%d matched to a decoy=%d; firing turret's distance rank among turrets: %s",
+      W.shots, W.matched, table.concat(parts, ", "))
+    script.finish_test(true)
+  end
+end
+
+-- blueprint: a computer built from a ghost with the settings tag gets those settings,
+-- and a ghost can be opened/configured and wired directly before being built
+CASES["tc-blueprint"] = function(e, pf)
+  if e.tick ~= 5 then return end
+  local src = remote.call("awesome-artillery", "computer_cfg", storage.computer.unit_number)
+  local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "awe-art-targeting-computer",
+    position = {-6.5, -18.5}, force = "player", raise_built = true}
+  for _, p in pairs(game.players) do
+    p.opened = ghost
+    say("opened ghost -> gui=%s", tostring(p.gui.screen.awe_art_tc ~= nil))
+  end
+  remote.call("awesome-artillery", "set_computer_cfg", ghost.unit_number, src)
+  local _, built = ghost.revive{raise_revive = true}
+  local got = built and remote.call("awesome-artillery", "computer_cfg", built.unit_number)
+  local a, b = serpent.line(src, {sortkeys = true}), serpent.line(got, {sortkeys = true})
+  say("source cfg: %s", a)
+  say("built cfg:  %s", b)
+  script.finish_test(built ~= nil and a == b and src.arc == 90)
+end
+
+CASES["tc-wiring"] = function(e, pf)
+  if e.tick ~= 5 then return end
+  local ok = test_wiring_and_targeting(pf, storage.computer)
+  say("tc-wiring test result: %s", tostring(ok))
+  script.finish_test(ok == true)
+end
+
+CASES.perf = function(e)
+  if e.tick == 600 then
+    remote.call("awesome-artillery", "profile_start")
+    say("profiling from t=600")
+  end
+  if e.tick >= storage.test_until then
+    remote.call("awesome-artillery", "profile_report")
+    say("%s", summary_line())
+    script.finish_test(true)
+  end
+end
+
+CASES.default = function(e)
+  -- decoys of rarer sizes live briefly: sample often so check_end sees them
+  if e.tick % 5 == 0 then
+    for name, n in pairs(remote.call("awesome-artillery", "decoys_by_name")) do
+      storage.observed[name] = (storage.observed[name] or 0) + n
+    end
+  end
+  if e.tick % 60 == 0 then
+    local err = check_case()
+    if err then
+      say("FAIL t=%d: %s", e.tick, err)
+      return script.finish_test(false)
+    end
+  end
+  if e.tick >= storage.test_until then
+    local names = {}
+    for k, v in pairs(storage.observed) do names[#names + 1] = k .. "=" .. v end
+    table.sort(names)
+    say("decoy samples: %s", table.concat(names, " "))
+    say("%s", summary_line())
+    local err = check_end()
+    if err then say("FAIL: %s", err) end
+    script.finish_test(err == nil)
+  end
+end
+
 -- lifecycle -----------------------------------------------------------------------------
 
 script.on_init(function()
@@ -626,250 +901,9 @@ script.on_event(defines.events.on_tick, function(e)
     end
     refresh_all()
   end
-  -- vel: do existing asteroids keep their velocity when the platform changes speed?
-  if storage.test_until and storage.case == "perf-vel" then
-    local V = storage.vel or {track = {}, changes = {}, samples = 0}
-    storage.vel = V
-    local s = pf.surface
-    if e.tick == 600 then storage.forced_speed = 20; say("t=600 platform speed 10 -> 20") end
-    if e.tick % 10 == 0 and e.tick >= 300 then
-      for _, a in pairs(s.find_entities_filtered{type = "asteroid", position = {0, 0}, radius = 200}) do
-        local id = a.unit_number
-        local p = a.position
-        local tr = V.track[id]
-        if tr then
-          local vx, vy = (p.x - tr.x) / 10, (p.y - tr.y) / 10
-          if tr.vx then
-            local dv = math.sqrt((vx - tr.vx) ^ 2 + (vy - tr.vy) ^ 2)
-            local phase = (tr.born < 600 and e.tick > 600) and "spans-change" or "steady"
-            V.changes[phase] = V.changes[phase] or {n = 0, max = 0, sum = 0}
-            local c = V.changes[phase]
-            c.n, c.max, c.sum = c.n + 1, math.max(c.max, dv), c.sum + dv
-            if tr.born < 600 and e.tick > 600 and not tr.reported and #V < 5 then
-              V[#V + 1] = true
-              tr.reported = true
-              say("asteroid %d (seen before change): v before (%.4f,%.4f) now (%.4f,%.4f)", id, tr.v0x, tr.v0y, vx, vy)
-            end
-          else
-            tr.v0x, tr.v0y = vx, vy
-          end
-          tr.x, tr.y, tr.vx, tr.vy = p.x, p.y, vx, vy
-        else
-          V.track[id] = {x = p.x, y = p.y, born = e.tick}
-        end
-      end
-    end
-    if e.tick >= storage.test_until then
-      for phase, c in pairs(V.changes) do
-        say("%s: %d samples, velocity change per 10 ticks: mean %.5f max %.5f tiles/tick", phase, c.n, c.sum / c.n, c.max)
-      end
-      return script.finish_test(true)
-    end
-    return
-  end
-  -- who: when a turret fires, which decoy did it aim at, and was that turret the nearest one?
-  if storage.test_until and storage.case == "perf-who" then
-    local W = storage.who or {ammo = {}, shots = 0, nearest = 0, ranks = {}, matched = 0}
-    storage.who = W
-    for i, t in pairs(storage.artillery) do
-      local n = t.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell")
-      if W.ammo[i] and n < W.ammo[i] then
-        W.shots = W.shots + 1
-        -- decoy whose bearing from this turret matches the barrel direction
-        local o = t.relative_turret_orientation * 360
-        local best, best_off
-        for _, d in pairs(remote.call("awesome-artillery", "decoy_list")) do
-          local off = geometry.angle_diff(geometry.bearing(d.x - t.position.x, d.y - t.position.y), o)
-          if not best_off or off < best_off then best, best_off = d, off end
-        end
-        if best and best_off < 3.6 then
-          W.matched = W.matched + 1
-          local mine = (best.x - t.position.x) ^ 2 + (best.y - t.position.y) ^ 2
-          local rank = 1
-          for j, u in pairs(storage.artillery) do
-            if j ~= i and (best.x - u.position.x) ^ 2 + (best.y - u.position.y) ^ 2 < mine then rank = rank + 1 end
-          end
-          W.ranks[rank] = (W.ranks[rank] or 0) + 1
-        end
-      end
-      W.ammo[i] = n
-    end
-    if e.tick >= storage.test_until then
-      local parts = {}
-      for r = 1, #storage.artillery do parts[#parts + 1] = string.format("rank %d: %d", r, W.ranks[r] or 0) end
-      say("shots=%d matched to a decoy=%d; firing turret's distance rank among turrets: %s",
-        W.shots, W.matched, table.concat(parts, ", "))
-      return script.finish_test(true)
-    end
-    return
-  end
-  -- blueprint: a computer built from a ghost with the settings tag gets those settings,
-  -- and a ghost can be opened/configured and wired directly before being built
-  if storage.test_until and storage.case == "tc-blueprint" then
-    if e.tick == 5 then
-      local src = remote.call("awesome-artillery", "computer_cfg", storage.computer.unit_number)
-      local ghost = pf.surface.create_entity{name = "entity-ghost", inner_name = "awe-art-targeting-computer",
-        position = {-6.5, -18.5}, force = "player", raise_built = true}
-      for _, p in pairs(game.players) do
-        p.opened = ghost
-        say("opened ghost -> gui=%s", tostring(p.gui.screen.awe_art_tc ~= nil))
-      end
-      remote.call("awesome-artillery", "set_computer_cfg", ghost.unit_number, src)
-      local _, built = ghost.revive{raise_revive = true}
-      local got = built and remote.call("awesome-artillery", "computer_cfg", built.unit_number)
-      local a, b = serpent.line(src, {sortkeys = true}), serpent.line(got, {sortkeys = true})
-      say("source cfg: %s", a)
-      say("built cfg:  %s", b)
-      return script.finish_test(built ~= nil and a == b and src.arc == 90)
-    end
-    return
-  end
-  -- tech: the computer and steel shell technologies, prerequisites, and asteroid-kill trigger
-  if storage.test_until and storage.case == "tech" then
-    local tech = prototypes.technology["awe-art-targeting-computer"]
-    local shell_tech = prototypes.technology["awe-art-steel-artillery-shell"]
-    local recipe = prototypes.recipe["awe-art-targeting-computer"]
-    local fhs = prototypes.recipe["awe-art-flash-hardened-steel"]
-    local shell = prototypes.recipe["awe-art-steel-artillery-shell"]
-    local prereqs = {}
-    for name in pairs(tech.prerequisites) do prereqs[#prereqs + 1] = name end
-    table.sort(prereqs)
-    say("tech prerequisites: %s; cost %d", table.concat(prereqs, ", "), tech.research_unit_count)
-    for _, i in pairs(recipe.ingredients) do
-      say("computer ingredient %s x%d quality_min=%s", i.name, i.amount, tostring(i.quality_min))
-    end
-    for _, i in pairs(fhs.ingredients) do say("fhs ingredient %s x%d", i.name, i.amount) end
-    for _, i in pairs(shell.ingredients) do say("shell ingredient %s x%d", i.name, i.amount) end
-    local f = game.forces.player
-    local r = f.recipes
-    local enabled = r["awe-art-targeting-computer"].enabled or r["awe-art-flash-hardened-steel"].enabled
-      or r["awe-art-steel-artillery-shell"].enabled
-    say("any recipe enabled at start: %s; fhs allow_productivity=%s", tostring(enabled), tostring(fhs.allowed_effects and fhs.allowed_effects.productivity))
-
-    -- Verify the scripted research trigger: research prerequisite, then kill 500 medium/big/huge asteroids with artillery
-    f.technologies["awe-art-targeting-computer"].researched = true
-    local s, turret = pf.surface, storage.artillery[1]
-    local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
-    for i = 1, 500 do
-      if i == 500 then
-        say("before final kill: ballistics=%s saved_progress=%.3f",
-          tostring(f.technologies["awe-art-asteroid-ballistics"].researched),
-          f.technologies["awe-art-asteroid-ballistics"].saved_progress)
-      end
-      local a = s.create_entity{name = kinds[(i - 1) % #kinds + 1], position = {0, -80}, force = "enemy"}
-      a.die(f, turret)
-    end
-    local ballistics_done = f.technologies["awe-art-asteroid-ballistics"].researched
-    local shell_auto = f.technologies["awe-art-steel-artillery-shell"].researched
-    say("after 500 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
-
-    -- Verify promethium ballistics trigger: research awe-art-steel-artillery-shell, then crack 1 promethium asteroid
-    f.technologies["awe-art-steel-artillery-shell"].researched = true
-    local pa = s.create_entity{name = "big-promethium-asteroid", position = {0, -80}, force = "enemy"}
-    pa.die(f, turret)
-    local prom_ballistics_done = f.technologies["awe-art-promethium-ballistics"].researched
-    local prom_shell_auto = f.technologies["awe-art-promethium-artillery-shell"].researched
-    local prom_tech = prototypes.technology["awe-art-promethium-artillery-shell"]
-    say("after 1 promethium kill: prom_ballistics=%s prom_shell_auto=%s cost=%d",
-      tostring(prom_ballistics_done), tostring(prom_shell_auto), prom_tech and prom_tech.research_unit_count or 0)
-
-    -- Verify turning speed research upgrades turrets and preserves shells
-    local base_rot = prototypes.entity["artillery-turret"].turret_rotation_speed
-    f.technologies["awe-art-artillery-rotation-1"].researched = true
-    local upgraded = s.find_entities_filtered{type = "artillery-turret"}[1]
-    local new_rot = upgraded and upgraded.prototype.turret_rotation_speed or 0
-    local ammo = upgraded and upgraded.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell") or 0
-    say("rotation upgrade: %s rot %.5f -> %.5f ammo=%d", upgraded and upgraded.name or "nil", base_rot, new_rot, ammo)
-
-    local rot_tech = prototypes.technology["awe-art-artillery-rotation-1"]
-    local vel_tech = prototypes.technology["awe-art-artillery-shell-velocity-1"]
-    say("rot_tech cost=%d vel_tech formula=%s", rot_tech.research_unit_count, tostring(vel_tech and vel_tech.research_unit_count_formula))
-
-    -- Descriptions that take their numbers from constants.lua
-    for _, proto in pairs{prototypes.item["awe-art-steel-artillery-shell"], prototypes.item["awe-art-promethium-artillery-shell"],
-      prototypes.technology["awe-art-asteroid-ballistics"], rot_tech, vel_tech} do
-      localised_print{"", "[PLAYTEST] ", proto.name, ": ", proto.factoriopedia_description}
-    end
-
-    -- Execute all 4 Factoriopedia / Tips & Tricks simulations to verify zero runtime/placement errors
-    local sims = prototypes.mod_data["awe-art-sims"].data
-    for sim_name, code in pairs(sims) do
-      local body = code:gsub('require%("__core__/lualib/story"%)', "")
-      local env = setmetatable({
-        story_elapsed_check = function() return function() return true end end,
-        story_jump_to = function() end,
-        tip_story_init = function(t)
-          if t and t[1] then
-            for _, node in pairs(t[1]) do if node.action then node.action() end end
-          end
-        end,
-        game = setmetatable({
-          simulation = {
-            create_test_player = function() return game.players[1] or {force = f, teleport = function() end} end,
-          },
-        }, {__index = game}),
-      }, {__index = _G})
-      local fn, load_err = load(body, "sim:" .. sim_name, "t", env)
-      if not fn then say("SIM LOAD FAIL %s: %s", sim_name, tostring(load_err)); return script.finish_test(false) end
-      local ok_sim, run_err = pcall(fn)
-      if not ok_sim then say("SIM RUN FAIL %s: %s", sim_name, tostring(run_err)); return script.finish_test(false) end
-      say("sim %s: OK", sim_name)
-    end
-    local ok_wiring = test_wiring_and_targeting(pf, storage.computer)
-    say("wiring and targeting test: OK")
-    return script.finish_test(ok_wiring and not enabled and fhs ~= nil and shell ~= nil and shell_tech ~= nil
-      and fhs.categories[1] ~= nil and shell.categories[1] ~= nil
-      and shell_tech.prerequisites["awe-art-asteroid-ballistics"] ~= nil
-      and tech.prerequisites["electromagnetic-science-pack"] ~= nil
-      and tech.prerequisites["metallurgic-science-pack"] ~= nil
-      and ballistics_done and not shell_auto
-      and prom_ballistics_done and not prom_shell_auto and prom_tech.research_unit_count == 4000
-      and rot_tech.research_unit_count == 2000 and vel_tech ~= nil
-      and math.abs(base_rot - 0.001) < 1e-6 and math.abs(new_rot - 0.0013) < 1e-6 and ammo == 15)
-  end
-  if storage.test_until and storage.case == "tc-wiring" then
-    if e.tick == 5 then
-      local ok = test_wiring_and_targeting(pf, storage.computer)
-      say("tc-wiring test result: %s", tostring(ok))
-      return script.finish_test(ok == true)
-    end
-    return
-  end
-  if storage.test_until and storage.case:find("^perf") then
-    if e.tick == 600 then
-      remote.call("awesome-artillery", "profile_start")
-      say("profiling from t=600")
-    end
-    if e.tick >= storage.test_until then
-      remote.call("awesome-artillery", "profile_report")
-      say("%s", summary_line())
-      return script.finish_test(true)
-    end
-    return
-  end
   if storage.test_until then
-    -- decoys of rarer sizes live briefly: sample often so check_end sees them
-    if e.tick % 5 == 0 then
-      for name, n in pairs(remote.call("awesome-artillery", "decoys_by_name")) do
-        storage.observed[name] = (storage.observed[name] or 0) + n
-      end
-    end
-    if e.tick % 60 == 0 then
-      local err = check_case()
-      if err then
-        say("FAIL t=%d: %s", e.tick, err)
-        return script.finish_test(false)
-      end
-    end
-    if e.tick >= storage.test_until then
-      local names = {}
-      for k, v in pairs(storage.observed) do names[#names + 1] = k .. "=" .. v end
-      table.sort(names)
-      say("decoy samples: %s", table.concat(names, " "))
-      say("%s", summary_line())
-      local err = check_end()
-      if err then say("FAIL: %s", err) end
-      script.finish_test(err == nil)
-    end
+    local case = storage.case
+    local handler = CASES[case] or (case:find("^perf") and CASES.perf) or CASES.default
+    handler(e, pf)
   end
 end)
