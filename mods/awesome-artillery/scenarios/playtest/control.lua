@@ -99,6 +99,18 @@ local function build_ship()
   storage.platform = platform
 end
 
+-- The ship's artillery turrets. The mod fast-replaces turrets when rotation research
+-- changes, which invalidates held references, so they are looked up again when that happens.
+local function artillery()
+  for _, t in pairs(storage.artillery) do
+    if not t.valid then
+      storage.artillery = storage.platform.surface.find_entities_filtered{type = "artillery-turret"}
+      break
+    end
+  end
+  return storage.artillery
+end
+
 -- stats ---------------------------------------------------------------------------------
 
 script.on_event(defines.events.on_entity_died, function(e)
@@ -550,7 +562,7 @@ local TECH_CHECKS = {
   {"ballistics trigger", function(pf)
     local f = game.forces.player
     f.technologies["awe-art-targeting-computer"].researched = true
-    local s, turret = pf.surface, storage.artillery[1]
+    local s, turret = pf.surface, artillery()[1]
     local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
     for i = 1, 500 do
       if i == 500 then
@@ -571,7 +583,7 @@ local TECH_CHECKS = {
     local f = game.forces.player
     f.technologies["awe-art-steel-artillery-shell"].researched = true
     local pa = pf.surface.create_entity{name = "big-promethium-asteroid", position = {0, -80}, force = "enemy"}
-    pa.die(f, storage.artillery[1])
+    pa.die(f, artillery()[1])
     local prom_ballistics_done = f.technologies["awe-art-promethium-ballistics"].researched
     local prom_shell_auto = f.technologies["awe-art-promethium-artillery-shell"].researched
     local prom_tech = prototypes.technology["awe-art-promethium-artillery-shell"]
@@ -695,7 +707,8 @@ end
 CASES["perf-who"] = function(e)
   local W = storage.who or {ammo = {}, shots = 0, nearest = 0, ranks = {}, matched = 0}
   storage.who = W
-  for i, t in pairs(storage.artillery) do
+  local turrets = artillery()
+  for i, t in pairs(turrets) do
     local n = t.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count("artillery-shell")
     if W.ammo[i] and n < W.ammo[i] then
       W.shots = W.shots + 1
@@ -710,7 +723,7 @@ CASES["perf-who"] = function(e)
         W.matched = W.matched + 1
         local mine = (best.x - t.position.x) ^ 2 + (best.y - t.position.y) ^ 2
         local rank = 1
-        for j, u in pairs(storage.artillery) do
+        for j, u in pairs(turrets) do
           if j ~= i and (best.x - u.position.x) ^ 2 + (best.y - u.position.y) ^ 2 < mine then rank = rank + 1 end
         end
         W.ranks[rank] = (W.ranks[rank] or 0) + 1
@@ -720,7 +733,7 @@ CASES["perf-who"] = function(e)
   end
   if e.tick >= storage.test_until then
     local parts = {}
-    for r = 1, #storage.artillery do parts[#parts + 1] = string.format("rank %d: %d", r, W.ranks[r] or 0) end
+    for r = 1, #turrets do parts[#parts + 1] = string.format("rank %d: %d", r, W.ranks[r] or 0) end
     say("shots=%d matched to a decoy=%d; firing turret's distance rank among turrets: %s",
       W.shots, W.matched, table.concat(parts, ", "))
     script.finish_test(true)
@@ -888,14 +901,12 @@ script.on_event(defines.events.on_tick, function(e)
     end
     if storage.refill then
       local shell = storage.shell or "artillery-shell"
-      for _, t in pairs(storage.artillery) do
-        if t and t.valid then
-          local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
-          local n = inv.get_item_count(shell)
-          if n < 15 then
-            storage.stats.shells = storage.stats.shells + 15 - n
-            inv.insert{name = shell, count = 15 - n}
-          end
+      for _, t in pairs(artillery()) do
+        local inv = t.get_inventory(defines.inventory.artillery_turret_ammo)
+        local n = inv.get_item_count(shell)
+        if n < 15 then
+          storage.stats.shells = storage.stats.shells + 15 - n
+          inv.insert{name = shell, count = 15 - n}
         end
       end
     end
