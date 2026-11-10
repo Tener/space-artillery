@@ -4,11 +4,16 @@ Run `tools/capture-clips.sh` on macOS with Factorio 2.1.24+, FFmpeg and Python 3
 `--encode-only` reuses captured frames. Loops are written to `tmp/clips/` for review; pass
 an output directory to write elsewhere. Each clip has one subject, and no caption is burned in.
 
+The reviewed recordings are tracked in `docs/clip-{follow,tactical,production}.{mp4,gif}`
+and embedded or linked from `docs/mod-portal.md`. To replace them after reviewing a
+new capture, copy the six files from `tmp/clips/` into `docs/` and commit them with
+any description changes.
+
 | Clip | What it shows | Required evidence |
 | --- | --- | --- |
 | Follow | The camera waits on one cannon, rides its shell to the marked aim point, holds on the break-up and returns. The flight is slowed to a third of real time. | A filmed shell kills its asteroid. |
 | Tactical | Far view of the ship with the computer's sector drawn; halfway through, the sector narrows and swings left. | Artillery kills in both sectors, none outside the active one. |
-| Production | Three close cuts: the collectors and crushers at the bow, the foundry casting a shell, the hub feeding both cannons as they fire. | A shell is cast, and a cannon is loaded and then fires, during the take. |
+| Production | Three close cuts, all in alt-mode: the collectors and crushers at the bow, the foundry casting a shell, the hub feeding both cannons as they fire. | A shell is cast, and a cannon is loaded and then fires, during the take. |
 
 The scenario films takes longer than the published loops and records shots, kills,
 casts and loads in `manifest.json`; the script cuts each loop around those events.
