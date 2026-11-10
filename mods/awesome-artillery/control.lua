@@ -149,7 +149,10 @@ local function intercept(px, py, vx, vy, ctx)
   local a = vx * vx + vy * vy - s * s
   local b = 2 * (rx * vx + ry * vy)
   local c = rx * rx + ry * ry
-  local t = (-b - math.sqrt(b * b - 4 * a * c)) / (2 * a)
+  local disc = b * b - 4 * a * c
+  -- an asteroid at least as fast as the shell may have no intercept point
+  if a == 0 or disc < 0 then return nil end
+  local t = (-b - math.sqrt(disc)) / (2 * a)
   local d = s * t
   if d < ctx.reach_min or d > ctx.reach_max then return nil end
   return px + vx * t, py + vy * t

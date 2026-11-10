@@ -805,6 +805,16 @@ CASES.default = function(e)
   end
 end
 
+-- fast: asteroids crossing faster than a shell flies have no intercept point; the mod must
+-- skip them without error
+CASES["tc-fast"] = function(e, pf)
+  if e.tick % 60 == 0 then
+    pf.surface.create_entity{name = "medium-metallic-asteroid", position = {-200, -100}, velocity = {3, 0}, force = "enemy"}
+    pf.surface.create_entity{name = "medium-metallic-asteroid", position = {0, -240}, velocity = {0, 3}, force = "enemy"}
+  end
+  CASES.default(e)
+end
+
 -- lifecycle -----------------------------------------------------------------------------
 
 script.on_init(function()
