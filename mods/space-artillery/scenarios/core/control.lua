@@ -3,6 +3,7 @@ local math_tests = require("__space-artillery__/scenarios/core/math")
 local ballistics = require("__space-artillery__/scripts/ballistics")
 local balance = require("__space-artillery__/constants")
 local COMPUTER = "space-art-targeting-computer"
+local BALLISTICS = "space-art-asteroid-ballistics"
 local MEDIUM, HUGE = "medium-metallic-asteroid", "huge-metallic-asteroid"
 local STEEL, PROM = "space-art-steel-artillery-shell", "space-art-promethium-artillery-shell"
 
@@ -99,6 +100,9 @@ end
 
 CASES.combat = function(tick)
   if tick == 1 then
+    assert(storage.platform.space_location.name == "fulgora" and not storage.platform.space_connection,
+      "combat test must run in planet orbit")
+    game.forces.player.technologies[COMPUTER].researched = true
     target()
     arm("artillery-shell", true)
     storage.phase, storage.deadline = 1, tick + 600
@@ -106,6 +110,12 @@ CASES.combat = function(tick)
   assert(tick < storage.deadline, "artillery did not kill the controlled target")
   if storage.target.valid then return end
   assert(storage.killed, "target must be killed by artillery")
+  local progress = game.forces.player.technologies[BALLISTICS].saved_progress
+  local expected_progress = storage.phase / balance.ballistics_kills
+  assert(math.abs(progress - expected_progress) < 1e-7,
+    string.format("orbital artillery kill %d: expected research progress %.3f, got %.3f",
+      storage.phase, expected_progress, progress))
+  print(string.format("[CORE] orbital artillery kill %d: field data progress %.3f", storage.phase, progress))
   local expected = storage.phase == 3 and 2 or 1
   assert(storage.shots == expected, string.format("target needs %d shells across three cannons; got %d", expected, storage.shots))
   local speed = assert(storage.speeds[1], "missing projectile speed")
@@ -119,7 +129,7 @@ CASES.combat = function(tick)
     target("big-metallic-asteroid").health = 1500
     storage.phase, storage.deadline = 3, tick + 600
   else
-    finish("stationary and crossing interceptions, one/two-shell budgets and shell velocity")
+    finish("orbital interceptions, field data, shell budgets and shell velocity")
   end
 end
 
@@ -185,13 +195,16 @@ script.on_init(function()
   assert(CASES[name], "unknown core case: " .. tostring(name))
   local f = game.forces.player
   storage.platform = f.create_space_platform{
-    name = "Core test", planet = "nauvis", starter_pack = "space-platform-starter-pack",
+    name = "Core test", planet = name == "combat" and "fulgora" or "nauvis",
+    starter_pack = "space-platform-starter-pack",
   }
   storage.platform.apply_starter_pack()
   storage.platform.paused = true
-  f.unlock_space_location("vulcanus")
-  storage.platform.space_connection = prototypes.space_connection["nauvis-vulcanus"]
-  storage.platform.distance = 0.5
+  if name ~= "combat" then
+    f.unlock_space_location("vulcanus")
+    storage.platform.space_connection = prototypes.space_connection["nauvis-vulcanus"]
+    storage.platform.distance = 0.5
+  end
   local s, tiles = storage.platform.surface, {}
   for x = -1, 1 do for y = -5, 1 do s.request_to_generate_chunks({x * 32, y * 32}, 0) end end
   s.force_generate_chunk_requests()
@@ -217,7 +230,7 @@ script.on_event(defines.events.on_trigger_fired_artillery, function(e)
 end)
 
 script.on_event(defines.events.on_entity_died, function(e)
-    if e.entity == storage.target then
+  if e.entity == storage.target then
     storage.killed = e.cause and e.cause.valid and e.cause.type == "artillery-turret"
   end
 end)

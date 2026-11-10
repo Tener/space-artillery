@@ -23,9 +23,9 @@ and runtime output are isolated under `.factorio-test/`.
 - `core-hull`: unsafe aim points are suppressed, foundation changes invalidate the
   cache, and empty gaps inside a hull bounding box remain targetable.
 - `core-damage`: actual ammo changes and damage research alter huge-target eligibility.
-- `core-combat`: stationary and crossing targets are killed by real artillery;
-  three cannons respect one- and two-shell target budgets; velocity research changes
-  the projectile's measured speed.
+- `core-combat`: real artillery kills stationary and crossing targets in planet
+  orbit and advances ballistics field data. Three cannons respect one- and two-shell
+  target budgets, and velocity research changes the projectile's measured speed.
 - `core-lifecycle`: target and computer destruction, replacement, and platform deletion.
 - `core-save`, `core-reload`: save a tracked target and configured computer, reopen
   the save in a new process, verify settings and decoy cleanup, then intercept again.
