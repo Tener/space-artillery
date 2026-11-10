@@ -153,9 +153,9 @@ end
 local function production_cameras()
   local foundry = storage.shells.position
   return {
-    {name = "catch", position = {0, -8.5}, zoom = 1.4},
+    {name = "catch", position = {0, -8.5}, zoom = 1.4, alt = true},
     {name = "cast", position = {foundry.x, foundry.y}, zoom = 1.6, alt = true},
-    {name = "load", position = {0, 2.5}, zoom = 1.1},
+    {name = "load", position = {0, 2.5}, zoom = 1.1, alt = true},
   }
 end
 
