@@ -148,6 +148,9 @@ CASES.lifecycle = function(tick)
     expect_decoys(0, "destroyed computer stops targeting")
     storage.computer = make(COMPUTER, {6, 2})
     call("set_computer_cfg", storage.computer.unit_number, {dir = 0, arc = 90, near = 32, far = 200})
+    script.raise_event(defines.events.script_raised_built, {entity = storage.computer})
+    local cfg = assert(call("computer_cfg", storage.computer.unit_number))
+    assert(cfg.arc == 90 and cfg.near == 32 and cfg.far == 200, "duplicate build event reset computer settings")
   elseif tick == 100 then
     expect_decoys(1, "replacement computer resumes targeting")
     storage.surface_index = storage.platform.surface.index

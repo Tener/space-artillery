@@ -81,9 +81,12 @@ end
 
 function M.add(entity, tags)
   M.init()
+  local id = entity.unit_number
   local raw = (tags and tags.space_art_cfg) or (entity.name == "entity-ghost" and entity.tags and entity.tags.space_art_cfg)
+  local existing = storage.computers[id]
+  if not raw and existing and existing.entity == entity then return end
   local c = {entity = entity, cfg = complete(raw and deepcopy(raw) or default_cfg())}
-  storage.computers[entity.unit_number] = c
+  storage.computers[id] = c
   save_tags(c)
   if entity.name == M.NAME then
     for p_idx, open_id in pairs(storage.open_computer or {}) do
@@ -105,7 +108,10 @@ function M.set_cfg(unit_number, cfg)
 end
 
 function M.rescan()
-  storage.computers = {}
+  M.init()
+  for id, c in pairs(storage.computers) do
+    if not M.is_computer(c.entity) then storage.computers[id] = nil end
+  end
   for _, s in pairs(game.surfaces) do
     for _, e in pairs(s.find_entities_filtered{name = M.NAME}) do M.add(e) end
     for _, e in pairs(s.find_entities_filtered{ghost_name = M.NAME}) do M.add(e) end
