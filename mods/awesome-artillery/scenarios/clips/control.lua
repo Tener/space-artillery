@@ -8,9 +8,11 @@ local geometry = require("__awesome-artillery__/scripts/geometry")
 local FRAME_EVERY = 3
 local WIDTH, HEIGHT = 1280, 720
 local WARMUP = 48000
--- What a player has soon after unlocking the mod: a few levels of each research, normal quality.
+-- What a player has soon after unlocking the mod: a few levels of each research, normal
+-- quality, and the next trip ahead of them (Fulgora to Aquilo, the first route with big asteroids).
 local PROFILE = {damage = 0.3, fire_rate = 1, rotation = 2, velocity = 2,
-  laser_quality = "normal", laser_damage = 0.5, laser_fire_rate = 0.5}
+  laser_quality = "normal", laser_damage = 0.5, laser_fire_rate = 0.5,
+  origin = "fulgora", destination = "aquilo"}
 local SPEED = 3 -- platform speed held during filming; asteroids are the route's own
 local TRACKED = 2 -- cannon the follow take stays with
 local SECTOR = {dir = 0, arc = 150, near = 32, far = 70}
@@ -18,8 +20,11 @@ local SECTOR = {dir = 0, arc = 150, near = 32, far = 70}
 local TACTICAL = {{dir = 0, arc = 150, near = 32, far = 60}, {dir = 320, arc = 60, near = 32, far = 60}}
 local SETTLE = 180 -- ticks after a sector change in which shells already aimed may still land
 
+-- The factory makes shells more slowly than four cannons spend them, so the cannons hold
+-- fire between takes while the reserve is rebuilt at high game speed.
+local REFILL = 16000
 local TAKES = {
-  {name = "follow", ticks = 2400},
+  {name = "follow", ticks = 1800},
   {name = "tactical", ticks = 1800, position = {0, -80}, zoom = 0.3},
   {name = "production", ticks = 1200},
 }
@@ -27,9 +32,9 @@ local next_tick = WARMUP
 for _, take in ipairs(TAKES) do
   take.first, take.last = next_tick, next_tick + take.ticks - 1
   take.frames = take.ticks / FRAME_EVERY
-  next_tick = next_tick + take.ticks
+  next_tick = next_tick + take.ticks + REFILL
 end
-local END_TICK = next_tick
+local END_TICK = next_tick - REFILL
 
 local function say(fmt, ...) print("[CLIPS] " .. string.format(fmt, ...)) end
 local function event(e) storage.events[#storage.events + 1] = e end
@@ -43,9 +48,10 @@ local function ammo(turret)
   return turret.get_inventory(defines.inventory.artillery_turret_ammo).get_item_count()
 end
 
-local function set_computer(sector)
+-- hold_fire: no size allowed, so the cannons stay silent and the hub's shell reserve builds up
+local function set_computer(sector, hold_fire)
   remote.call("awesome-artillery", "set_computer_cfg", storage.computer.unit_number, {
-    sizes = {small = false, medium = true, big = true, huge = true},
+    sizes = {small = false, medium = not hold_fire, big = not hold_fire, huge = not hold_fire},
     dir = sector.dir, arc = sector.arc, near = sector.near, far = sector.far,
   })
   storage.sector = sector
@@ -157,7 +163,14 @@ local function begin_take(take)
     storage.crafted, storage.loaded = storage.shells.products_finished, ammo(storage.turrets[1])
   end
   assert(storage.platform.space_connection and storage.platform.speed > 0, "every take must show a ship in flight")
-  say("%s begins at tick %d", take.name, game.tick)
+  local sizes = {}
+  for _, a in pairs(storage.platform.surface.find_entities_filtered{type = "asteroid"}) do
+    local size = a.name:match("^(%a+)%-")
+    sizes[size] = (sizes[size] or 0) + 1
+  end
+  say("%s begins at tick %d; route position %.2f; asteroids small/medium/big/huge %d/%d/%d/%d; shells in the hub %d", take.name, game.tick,
+    storage.platform.distance, sizes.small or 0, sizes.medium or 0, sizes.big or 0, sizes.huge or 0,
+    storage.platform.hub.get_inventory(defines.inventory.hub_main).get_item_count("awe-art-steel-artillery-shell"))
 end
 
 local function verify_take(take)
@@ -174,7 +187,7 @@ local function verify_take(take)
   elseif take.name == "tactical" then
     say("tactical: %d kills in the wide sector, %d in the narrow one, %d outside the active sector",
       stats.wide or 0, stats.narrow or 0, stats.outside or 0)
-    assert((stats.wide or 0) >= 3 and (stats.narrow or 0) >= 1, "tactical needs kills in both sectors")
+    assert((stats.wide or 0) >= 3 and (stats.narrow or 0) >= 3, "tactical needs kills in both sectors")
     assert((stats.outside or 0) == 0, "tactical: artillery killed outside the active sector")
   elseif take.name == "production" then
     say("production: %d shells cast, %d loaded into cannon 1, %d fired by it", stats.cast or 0, stats.load or 0, stats.fired or 0)
@@ -241,7 +254,7 @@ script.on_event(defines.events.on_tick, function(e)
   if tick == 1 then
     remote.call("awesome-artillery", "set_interval", 10)
     remote.call("awesome-artillery", "set_debug", false)
-    set_computer(SECTOR)
+    set_computer(SECTOR, true)
     if not script.test_arg then game.set_wait_for_screenshots_to_finish() end
   end
   for _, take in ipairs(TAKES) do
@@ -282,7 +295,12 @@ script.on_event(defines.events.on_tick, function(e)
           for _, camera in ipairs(production_cameras()) do frame(camera.name, index, camera.position, camera.zoom, camera.alt) end
         end
       end
-      if tick == take.last then verify_take(take) end
+      if tick == take.last then
+        verify_take(take)
+        storage.take = nil
+        set_computer(SECTOR, true)
+        game.speed = 32
+      end
     end
   end
   if tick == END_TICK then
