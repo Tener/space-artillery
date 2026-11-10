@@ -485,29 +485,34 @@ local TECH_CHECKS = {
       and tech.prerequisites["electromagnetic-science-pack"] ~= nil
       and tech.prerequisites["metallurgic-science-pack"] ~= nil
   end},
-  -- the scripted research trigger: research prerequisite, then kill 500 medium/big/huge asteroids with artillery
-  {"ballistics trigger", function(pf)
+  -- The checkpoint advances before it is queued and while it is active.
+  {"ballistics checkpoint", function(pf)
     local f = game.forces.player
     f.technologies["space-art-targeting-computer"].researched = true
     local ballistics = f.technologies["space-art-asteroid-ballistics"]
     assert(ballistics.research_unit_count == 500, "field data needs a research unit per qualifying kill")
-    assert(not f.add_research(ballistics), "field data must complete through its trigger")
+    local steel = f.technologies["space-art-steel-artillery-shell"]
+    f.technologies["advanced-asteroid-processing"].researched = true
     local s, turret = pf.surface, artillery()[1]
     local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
     for i = 1, 500 do
-      if i == 500 then
-        say("before final kill: ballistics=%s saved_progress=%.3f",
-          tostring(ballistics.researched), ballistics.saved_progress)
-        assert(not ballistics.researched and math.abs(ballistics.saved_progress - 0.998) < 1e-7,
+      if i == 499 then
+        assert(math.abs(ballistics.saved_progress - 0.996) < 1e-7, "unqueued checkpoint progress")
+        assert(f.add_research(ballistics) and f.current_research == ballistics, "checkpoint must be selectable")
+        assert(f.add_research(steel), "could not queue steel shell research")
+      elseif i == 500 then
+        say("before final kill: ballistics=%s research_progress=%.3f",
+          tostring(ballistics.researched), f.research_progress)
+        assert(not ballistics.researched and math.abs(f.research_progress - 0.998) < 1e-7,
           "499 kills must leave the checkpoint one kill short")
       end
       local a = s.create_entity{name = kinds[(i - 1) % #kinds + 1], position = {0, -80}, force = "enemy"}
       a.die(f, turret)
     end
     local ballistics_done = ballistics.researched
-    local shell_auto = f.technologies["space-art-steel-artillery-shell"].researched
+    local shell_auto = steel.researched
     say("after 500 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
-    return ballistics_done and not shell_auto
+    return ballistics_done and not shell_auto and f.current_research == steel
   end},
   -- promethium ballistics trigger: research space-art-steel-artillery-shell, then crack 1 promethium asteroid
   {"promethium trigger", function(pf)

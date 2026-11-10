@@ -244,11 +244,26 @@ do
     }
   end
 
-  local asteroid_ballistics = trigger_tech("asteroid-ballistics", "space-art-targeting-computer",
-    tostring(constants.ballistics_kills))
-  -- Give saved progress a unit count for the research bar. The trigger completes the technology.
-  asteroid_ballistics.unit = {count = constants.ballistics_kills, time = 1, ingredients = {}}
-  asteroid_ballistics.ignore_tech_cost_multiplier = true
+  -- The checkpoint uses the normal research bar. Its data has no recipe,
+  -- so only the kill counter can advance it during play.
+  local field_data = "space-art-interception-data"
+  data:extend{{
+    type = "tool", name = field_data,
+    icon = gfx .. "technology/asteroid-ballistics.png", icon_size = 256,
+    stack_size = 1, durability = 1, hidden = true, hidden_in_factoriopedia = true,
+  }}
+  -- Every research ingredient must be accepted by at least one lab.
+  table.insert(data.raw.lab.lab.inputs, field_data)
+  local asteroid_ballistics = {
+    type = "technology", name = "space-art-asteroid-ballistics",
+    icon = gfx .. "technology/asteroid-ballistics.png", icon_size = 256,
+    localised_description = {"technology-description.space-art-asteroid-ballistics", tostring(constants.ballistics_kills)},
+    factoriopedia_description = {"factoriopedia-description.space-art-asteroid-ballistics", tostring(constants.ballistics_kills)},
+    prerequisites = {"space-art-targeting-computer"},
+    effects = {{type = "nothing", effect_description = {"technology-effect.space-art-asteroid-ballistics"}}},
+    unit = {count = constants.ballistics_kills, time = 1, ingredients = {{field_data, 1}}},
+    ignore_tech_cost_multiplier = true,
+  }
 
   local function shell_tech(kind, prerequisites, recipes, count, ...)
     local name = "space-art-" .. kind .. "-artillery-shell"

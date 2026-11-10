@@ -385,8 +385,20 @@ local function check_ballistics_tech(force)
       for _, chunk in pairs(BALLISTICS_CHUNKS) do
         sum = sum + (k[chunk] or 0)
       end
-      pcall(function() tech.saved_progress = math.min(0.999, sum / BALLISTICS_KILLS) end)
-      if sum >= BALLISTICS_KILLS and prerequisites_researched(tech) then force.script_trigger_research(BALLISTICS_TECH) end
+      local complete = sum >= BALLISTICS_KILLS and tech.enabled and prerequisites_researched(tech)
+      local progress = math.min(0.999, sum / BALLISTICS_KILLS)
+      if force.current_research == tech then
+        force.research_progress = complete and 1 or progress
+      elseif complete then
+        local queue = force.research_queue
+        tech.researched = true
+        -- Completing a queued checkpoint can remove its queued dependents.
+        if #force.research_queue < #queue - 1 then
+          force.research_queue = queue
+        end
+      else
+        tech.saved_progress = progress
+      end
     end
   end
   local ptech = force.technologies[PROMETHIUM_BALLISTICS_TECH]
