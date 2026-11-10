@@ -4,6 +4,7 @@
 
 local balance = require("constants")
 local computer = require("__space-artillery__/scripts/computer")
+local ballistics = require("__space-artillery__/scripts/ballistics")
 
 local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
@@ -121,12 +122,7 @@ local function shell_damage(force, shell, name)
   if per_force[name] then return per_force[name] end
   local resist = prototypes.entity[name].resistances or {}
   local mult = 1 + force.get_ammo_damage_modifier("artillery-shell")
-  local total = 0
-  for type, amount in pairs(SHELLS[shell] or SHELLS["artillery-shell"]) do
-    local r = resist[type] or {decrease = 0, percent = 0}
-    local d = amount * mult - r.decrease
-    if d > 0 then total = total + d * (1 - r.percent) end
-  end
+  local total = ballistics.damage(SHELLS[shell] or SHELLS["artillery-shell"], resist, mult)
   per_force[name] = total
   return total
 end
@@ -138,22 +134,6 @@ local function eligible(name, health, force, ctx)
 end
 
 local function dist(x1, y1, x2, y2) return math.sqrt((x1 - x2) ^ 2 + (y1 - y2) ^ 2) end
-
-local function intercept(px, py, vx, vy, ctx)
-  px, py = px + vx * ctx.half_interval, py + vy * ctx.half_interval
-  local rx, ry = px - ctx.cx, py - ctx.cy
-  local s = ctx.shell_speed
-  local a = vx * vx + vy * vy - s * s
-  local b = 2 * (rx * vx + ry * vy)
-  local c = rx * rx + ry * ry
-  local disc = b * b - 4 * a * c
-  -- an asteroid at least as fast as the shell may have no intercept point
-  if a == 0 or disc < 0 then return nil end
-  local t = (-b - math.sqrt(disc)) / (2 * a)
-  local d = s * t
-  if d < ctx.reach_min or d > ctx.reach_max then return nil end
-  return px + vx * t, py + vy * t
-end
 
 local function hull_boxes(s)
   storage.hull = storage.hull or {}
@@ -234,7 +214,7 @@ local function update_asteroid(tr, ctx)
   tr.lx, tr.ly, tr.tick = px, py, game.tick
   local health = a.health
   local ax, ay
-  if tr.vx and eligible(name, health, force, ctx) then ax, ay = intercept(px, py, tr.vx, tr.vy, ctx) end
+  if tr.vx and eligible(name, health, force, ctx) then ax, ay = ballistics.intercept(px, py, tr.vx, tr.vy, ctx) end
   if not ax then return drop_decoy(tr) end
   local aim = tr.aim
   if not aim then aim = {ax, ay}; tr.aim = aim end
@@ -486,7 +466,9 @@ remote.add_interface("space-artillery", {
   decoy_list = function()
     local out = {}
     for _, tr in pairs(storage.tracked) do
-      if tr.d and tr.d.valid and tr.a.valid then out[#out + 1] = {name = tr.a.name, x = tr.d.position.x, y = tr.d.position.y} end
+      if tr.d and tr.d.valid and tr.a.valid then
+        out[#out + 1] = {name = tr.a.name, asteroid = tr.a.unit_number, x = tr.d.position.x, y = tr.d.position.y}
+      end
     end
     return out
   end,

@@ -4,6 +4,8 @@ Date: 2026-11-08
   Changes:
     - Renamed the mod to Space Artillery (space-artillery), with space-art-* prototype identifiers.
     - Replaces awesome-artillery; the two mods cannot be enabled together. Runtime state from the former mod is not migrated.
+  Bugfixes:
+    - Fixed lead prediction for equal-speed and faster approaching asteroids.
   Features:
     - Space platform artillery automatically engages incoming asteroids with lead prediction, overkill avoidance, and hull splash safety.
     - Targeting computer (5 MW, space-only): filter targets by asteroid size, chunk type, and directional sector zone, with red/green circuit network overrides and ghost configuration support.

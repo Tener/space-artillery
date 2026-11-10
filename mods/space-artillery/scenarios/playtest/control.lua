@@ -389,22 +389,18 @@ local function test_geometry_and_gui(comp)
   say("math assertions: OK")
 
   -- unchecking small size must persist in config
-  local p = game.players[1]
-  if p then
-    remote.call("space-artillery", "open_computer", p.index, comp.unit_number)
-    local f = p.gui.screen.space_art_tc
-    if f and f.valid then
-      local cb_small = f.inside.body.sizes_row.sizes_left["space_art_tc_size_small"]
-      if cb_small and cb_small.valid then
-        cb_small.state = false
-        remote.call("space-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
-        local cfg = remote.call("space-artillery", "computer_cfg", comp.unit_number)
-        say("after unchecking small: cfg.sizes.small=%s", tostring(cfg and cfg.sizes.small))
-        assert(cfg.sizes.small == false, "Small size must be false in config after unchecking!")
-      end
-      f.destroy()
-    end
-  end
+  local p = assert(game.players[1], "GUI test requires a player")
+  remote.call("space-artillery", "open_computer", p.index, comp.unit_number)
+  local f = p.gui.screen.space_art_tc
+  assert(f and f.valid, "computer window was not created")
+  local cb_small = assert(f.inside.body.sizes_row.sizes_left["space_art_tc_size_small"], "missing size checkbox")
+  assert(cb_small.valid, "size checkbox is invalid")
+  cb_small.state = false
+  remote.call("space-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
+  local cfg = remote.call("space-artillery", "computer_cfg", comp.unit_number)
+  say("after unchecking small: cfg.sizes.small=%s", tostring(cfg and cfg.sizes.small))
+  assert(cfg.sizes.small == false, "Small size must be false in config after unchecking!")
+  f.destroy()
   return true
 end
 
@@ -736,13 +732,20 @@ CASES.default = function(e)
   end
 end
 
--- fast: asteroids crossing faster than a shell flies have no intercept point; the mod must
--- skip them without error
+-- These perpendicular and receding targets have no future intercept; other natural targets do.
 CASES["tc-fast"] = function(e, pf)
+  storage.fast_targets = storage.fast_targets or {}
   if e.tick % 60 == 0 then
-    pf.surface.create_entity{name = "medium-metallic-asteroid", position = {-200, -100}, velocity = {3, 0}, force = "enemy"}
-    pf.surface.create_entity{name = "medium-metallic-asteroid", position = {0, -240}, velocity = {0, 3}, force = "enemy"}
+    for _, v in ipairs{{3, 0}, {0, -3}} do
+      local a = assert(pf.surface.create_entity{name = "medium-metallic-asteroid", position = {0, -150}, velocity = v, force = "enemy"})
+      storage.fast_targets[a.unit_number] = a
+      storage.fast_created = (storage.fast_created or 0) + 1
+    end
   end
+  for _, d in pairs(remote.call("space-artillery", "decoy_list")) do
+    assert(not storage.fast_targets[d.asteroid], "unreachable asteroid received a decoy")
+  end
+  if e.tick >= storage.test_until then assert((storage.fast_created or 0) > 0, "no unreachable targets were tested") end
   CASES.default(e)
 end
 
