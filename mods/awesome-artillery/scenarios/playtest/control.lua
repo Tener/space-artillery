@@ -5,7 +5,6 @@
 local function say(fmt, ...) print("[PLAYTEST] " .. string.format(fmt, ...)) end
 
 local geometry = require("__awesome-artillery__/scripts/geometry")
-local targeting = require("__awesome-artillery__/scripts/targeting")
 
 local SPEEDS = {0, 5, 10, 20} -- 0 = let the thrusters drive (natural is about 2)
 local SIZES = {"small", "medium", "big", "huge"}
@@ -92,13 +91,6 @@ local function build_ship()
     storage.computer_b = make("awe-art-targeting-computer", {-6.5, -18.5})
     storage.pending_cfg[comp] = {use = {size = true}}
     storage.pending_cfg[storage.computer_b.unit_number] = {sizes = {small = true}}
-  elseif case == "perf-wired" or case == "tc-wired" then
-    -- every cannon dedicated to the computer: compare shells and kills with an unwired run
-    -- (perf-i30 at forced speed, tc-base at thruster speed)
-    local red = defines.wire_connector_id.circuit_red
-    for _, t in pairs(storage.artillery) do
-      storage.computer.get_wire_connector(red, true).connect_to(t.get_wire_connector(red, true))
-    end
   end
 
   platform.schedule = {current = 1, records = {{station = "vulcanus"}, {station = "nauvis"}}}
@@ -382,12 +374,8 @@ end
 
 -- headless checks ------------------------------------------------------------------------
 
--- Per-case invariants, checked every second; returns an error or nil.
-local function test_wiring_and_targeting(pf, comp_a)
-  local s = pf.surface
-  local turrets = s.find_entities_filtered{type = "artillery-turret"}
-
-  -- 1. Test math helpers: bearing and angle_diff
+-- Bearing math, and a size checkbox in the computer's window reaching its settings.
+local function test_geometry_and_gui(comp)
   assert(geometry.bearing(0, -100) == 0, "North bearing must be 0")
   assert(geometry.bearing(100, 0) == 90, "East bearing must be 90")
   assert(geometry.bearing(0, 100) == 180, "South bearing must be 180")
@@ -400,87 +388,23 @@ local function test_wiring_and_targeting(pf, comp_a)
   assert(geometry.angle_diff(355, 5) == 10, "Diff between 355 and 5 must be 10")
   say("math assertions: OK")
 
-  -- 2. Test initial topology without wires:
-  -- All 4 turrets should be unwired, and comp_a should have 0 wired turrets.
-  local topo0 = remote.call("awesome-artillery", "surface_topology", s.index, true)
-  assert(#topo0.unwired_turrets == 4, "Initially all 4 turrets must be unwired")
-  assert(targeting.wired_turret_count(comp_a.unit_number, topo0) == 0, "comp_a should have 0 wired turrets initially")
-  say("initial topology: 4 unwired, 0 wired to comp_a: OK")
-
-  -- 3. Connect Turret 1 & Turret 2 to Computer A (red wire)
-  local red = defines.wire_connector_id.circuit_red
-  local green = defines.wire_connector_id.circuit_green
-  local conn_comp_a_red = comp_a.get_wire_connector(red, true)
-  local conn_t1_red = turrets[1].get_wire_connector(red, true)
-  local conn_t2_red = turrets[2].get_wire_connector(red, true)
-  local c1_ok = conn_comp_a_red.connect_to(conn_t1_red, false)
-  local c2_ok = conn_comp_a_red.connect_to(conn_t2_red, false)
-  say("c1_ok=%s c2_ok=%s comp_net=%s t1_net=%s", tostring(c1_ok), tostring(c2_ok),
-    tostring(comp_a.get_circuit_network(red) and comp_a.get_circuit_network(red).network_id),
-    tostring(turrets[1].get_circuit_network(red) and turrets[1].get_circuit_network(red).network_id))
-
-  local topo1 = remote.call("awesome-artillery", "surface_topology", s.index, true)
-  assert(targeting.wired_turret_count(comp_a.unit_number, topo1) == 2, "comp_a should have 2 wired turrets")
-  assert(#topo1.unwired_turrets == 2, "2 turrets should remain unwired")
-  say("wiring turrets 1 and 2 to comp_a: OK")
-
-  -- 4. Create Computer B and connect Turret 3 via green wire
-  local comp_b = s.create_entity{name = "awe-art-targeting-computer", position = {-6.5, -18.5}, force = "player", raise_built = true}
-  local conn_comp_b_green = comp_b.get_wire_connector(green, true)
-  local conn_t3_green = turrets[3].get_wire_connector(green, true)
-  conn_comp_b_green.connect_to(conn_t3_green, false)
-
-  local topo2 = remote.call("awesome-artillery", "surface_topology", s.index, true)
-  assert(targeting.wired_turret_count(comp_a.unit_number, topo2) == 2, "comp_a has 2 turrets")
-  assert(targeting.wired_turret_count(comp_b.unit_number, topo2) == 1, "comp_b has 1 turret")
-  assert(#topo2.unwired_turrets == 1, "turret 4 remains unwired")
-  say("wiring turret 3 to comp_b: OK")
-
-  -- 5. Disconnect Turret 2 from Computer A
-  conn_t2_red.disconnect_all()
-  local topo3 = remote.call("awesome-artillery", "surface_topology", s.index, true)
-  assert(targeting.wired_turret_count(comp_a.unit_number, topo3) == 1, "comp_a now has 1 turret (turret 1)")
-  assert(#topo3.unwired_turrets == 2, "turrets 2 and 4 are unwired")
-  say("disconnecting turret 2: OK")
-
-  -- 6. Test stickiness selection
-  -- Turret 1 (orientation 0 = North), Turret 4 (orientation 0.5 = South)
-  turrets[1].relative_turret_orientation = 0
-  turrets[4].relative_turret_orientation = 0.5
-  local aim_north = {turrets[1].position.x, turrets[1].position.y - 100}
-  local picked_north, diff_north = targeting.pick_sticky_turret({turrets[1], turrets[4]}, aim_north[1], aim_north[2])
-  assert(picked_north.unit_number == turrets[1].unit_number, "aim north should pick turret 1 (orientation North)")
-  assert(diff_north < 1, "diff north should be nearly 0")
-
-  local aim_south = {turrets[4].position.x, turrets[4].position.y + 100}
-  local picked_south, diff_south = targeting.pick_sticky_turret({turrets[1], turrets[4]}, aim_south[1], aim_south[2])
-  assert(picked_south.unit_number == turrets[4].unit_number, "aim south should pick turret 4 (orientation South)")
-  assert(diff_south < 1, "diff south should be nearly 0")
-  say("stickiness selection: OK")
-
-  -- 7. Test GUI checkbox: unchecking small size must persist in config
+  -- unchecking small size must persist in config
   local p = game.players[1]
   if p then
-    remote.call("awesome-artillery", "open_computer", p.index, comp_a.unit_number)
+    remote.call("awesome-artillery", "open_computer", p.index, comp.unit_number)
     local f = p.gui.screen.awe_art_tc
     if f and f.valid then
       local cb_small = f.inside.body.sizes_row.sizes_left["awe_art_tc_size_small"]
       if cb_small and cb_small.valid then
         cb_small.state = false
         remote.call("awesome-artillery", "test_gui_check", {player_index = p.index, element = cb_small})
-        local cfg = remote.call("awesome-artillery", "computer_cfg", comp_a.unit_number)
+        local cfg = remote.call("awesome-artillery", "computer_cfg", comp.unit_number)
         say("after unchecking small: cfg.sizes.small=%s", tostring(cfg and cfg.sizes.small))
         assert(cfg.sizes.small == false, "Small size must be false in config after unchecking!")
       end
       f.destroy()
     end
   end
-
-  -- Clean up created test entities / connections:
-  conn_t1_red.disconnect_all()
-  conn_t3_green.disconnect_all()
-  comp_b.destroy()
-  remote.call("awesome-artillery", "surface_topology", s.index, true)
   return true
 end
 
@@ -648,7 +572,7 @@ local TECH_CHECKS = {
     end
     return ok
   end},
-  {"wiring", function(pf) return test_wiring_and_targeting(pf, storage.computer) end},
+  {"geometry and gui", function() return test_geometry_and_gui(storage.computer) end},
 }
 
 -- Headless cases with a tick handler of their own, run after the common upkeep in on_tick.
@@ -748,7 +672,7 @@ CASES["perf-who"] = function(e)
 end
 
 -- blueprint: a computer built from a ghost with the settings tag gets those settings,
--- and a ghost can be opened/configured and wired directly before being built
+-- and a ghost can be opened and configured directly before being built
 CASES["tc-blueprint"] = function(e, pf)
   if e.tick ~= 5 then return end
   local src = remote.call("awesome-artillery", "computer_cfg", storage.computer.unit_number)
@@ -767,10 +691,10 @@ CASES["tc-blueprint"] = function(e, pf)
   script.finish_test(built ~= nil and a == b and src.arc == 90)
 end
 
-CASES["tc-wiring"] = function(e, pf)
+CASES["tc-gui"] = function(e)
   if e.tick ~= 5 then return end
-  local ok = test_wiring_and_targeting(pf, storage.computer)
-  say("tc-wiring test result: %s", tostring(ok))
+  local ok = test_geometry_and_gui(storage.computer)
+  say("tc-gui test result: %s", tostring(ok))
   script.finish_test(ok == true)
 end
 

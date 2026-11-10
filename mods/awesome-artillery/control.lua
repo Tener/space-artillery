@@ -1,14 +1,9 @@
--- Decoy controller: manages artillery targeting for asteroids.
--- Features:
--- 1. Wired computer binding: artillery turrets wired via red/green circuit network to a
---    Targeting Computer are controlled exclusively by that computer.
--- 2. Pure-stickiness orientation optimization: cannons prioritize targets closest to their
---    current barrel orientation to eliminate unnecessary swivel latencies.
--- 3. In-flight damage tracking: avoids wasting shells on asteroids already doomed.
+-- Decoy controller: each asteroid a platform's targeting computers allow gets an invisible
+-- decoy at its intercept point, which vanilla artillery auto-targets. The decoy mirrors the
+-- asteroid's health, so vanilla's predicted-damage check avoids wasting shells on it.
 
 local balance = require("constants")
 local computer = require("__awesome-artillery__/scripts/computer")
-local targeting = require("__awesome-artillery__/scripts/targeting")
 
 local SIZE_RANK = {small = 1, medium = 2, big = 3, huge = 4}
 -- Artillery shell damage by ammo name (projectile prototypes aren't readable at runtime).
@@ -44,7 +39,6 @@ local function init_storage()
   storage.turrets = storage.turrets or {}   -- surface index -> unit_number -> turret
   storage.tracked = storage.tracked or {}   -- registration number -> {a, d, surface, slot, seen, ...}
   storage.ctx = storage.ctx or {}           -- surface index -> ctx from the surface's last scan
-  storage.surface_topo = storage.surface_topo or {} -- surface index -> topology
   storage.interval = nil                    -- forces a bucket rebuild on the next tick
   storage.damage = {}                       -- force|shell -> asteroid name -> damage per shell
   storage.kills = storage.kills or {}       -- force index -> chunk name -> medium/big/huge artillery kills
@@ -105,12 +99,10 @@ local function add_turret(t)
   local list = storage.turrets[t.surface.index] or {}
   list[t.unit_number] = t
   storage.turrets[t.surface.index] = list
-  if storage.surface_topo then storage.surface_topo[t.surface.index] = nil end
 end
 
 local function rescan()
   storage.turrets = {}
-  storage.surface_topo = {}
   for _, s in pairs(game.surfaces) do
     for _, t in pairs(s.find_entities_filtered{type = "artillery-turret"}) do add_turret(t) end
   end
@@ -233,17 +225,6 @@ local function untrack(id)
   if b then b[id] = nil end
 end
 
--- Refresh wire topology for surface
-local function surface_topology(s_index, turrets, force)
-  storage.surface_topo = storage.surface_topo or {}
-  local topo = storage.surface_topo[s_index]
-  if not force and topo and (game.tick - topo.tick < 300) then return topo end
-  local new_topo = targeting.update_surface_topology(s_index, turrets, storage.computers or {})
-  new_topo.tick = game.tick
-  storage.surface_topo[s_index] = new_topo
-  return new_topo
-end
-
 local function update_asteroid(tr, ctx)
   local s, force, rules, interval = ctx.s, ctx.force, ctx.rules, ctx.interval
   local a, p, name = tr.a, tr.a.position, tr.name
@@ -260,52 +241,7 @@ local function update_asteroid(tr, ctx)
   local moved = (ax - aim[1]) ^ 2 + (ay - aim[2]) ^ 2 >= TELEPORT_MIN * TELEPORT_MIN
   aim[1], aim[2] = ax, ay
   if not safe(s, aim, ctx) then return drop_decoy(tr) end
-
-  local topo = ctx.topo
-  local matching_comps = {}
-  local allowed_any = false
-
-  if rules then
-    for comp_unit, r in pairs(rules) do
-      if computer.allows({r}, name, ax, ay) then
-        allowed_any = true
-        matching_comps[comp_unit] = true
-      end
-    end
-    if not allowed_any then return drop_decoy(tr) end
-  end
-
-  -- Determine if any turret is authorized and available to shoot this target.
-  -- 1. If any matching computer has wired turrets, assign target stickily among them.
-  -- 2. If matching computer has no wired turrets, unwired platform turrets can engage.
-  local candidate_turrets = {}
-  local has_wired_system = false
-
-  if topo then
-    for comp_unit in pairs(matching_comps) do
-      local wired = topo.comp_to_turrets[comp_unit]
-      if wired and #wired > 0 then
-        has_wired_system = true
-        for _, t in pairs(wired) do
-          if t.valid then candidate_turrets[#candidate_turrets + 1] = t end
-        end
-      end
-    end
-
-    if not has_wired_system and topo.unwired_turrets then
-      for _, t in pairs(topo.unwired_turrets) do
-        if t.valid then candidate_turrets[#candidate_turrets + 1] = t end
-      end
-    end
-  end
-
-  if #candidate_turrets == 0 then return drop_decoy(tr) end
-
-  -- Sticky orientation: candidate turret closest to this heading is chosen
-  local best_turret = targeting.pick_sticky_turret(candidate_turrets, ax, ay)
-  if best_turret and best_turret.valid then
-    best_turret.artillery_auto_targeting = true
-  end
+  if rules and not computer.allows(rules, name, ax, ay) then return drop_decoy(tr) end
 
   if tr.d and tr.d.valid then
     if moved then tr.d.teleport(aim) end
@@ -321,24 +257,16 @@ local function update_asteroid(tr, ctx)
   end
 end
 
--- Scan surface once per interval: collects turrets, builds topology, resets gated auto_targeting
+-- Scan surface once per interval: sets up the surface's ctx and tracks the asteroids in reach
 local function scan_surface(s, turrets, interval)
   local c = constants()
   local force = s.platform.force
   local range = c.range * (1 + force.artillery_range_modifier)
   local g = settings.global
-  local topo = surface_topology(s.index, turrets)
-
-  -- Gate auto_targeting: any turret wired to a computer defaults to false until assigned a target
-  for comp_unit, wired in pairs(topo.comp_to_turrets) do
-    for _, t in pairs(wired) do
-      if t.valid then t.artillery_auto_targeting = false end
-    end
-  end
 
   local ctx = {s = s, force = force, interval = interval, scan_tick = game.tick,
     min_rank = SIZE_RANK[g["awe-art-min-size"].value], max_shells = g["awe-art-max-shells"].value,
-    blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s), topo = topo}
+    blast = BLAST_RADIUS + g["awe-art-safety-margin"].value, hull = hull_boxes(s)}
   storage.ctx[s.index] = ctx
 
   local cx, cy = 0, 0
@@ -408,7 +336,6 @@ local function scan_due(tick, interval)
       local s = game.get_surface(index)
       if not (s and s.valid and s.platform) then
         storage.turrets[index], storage.ctx[index] = nil, nil
-        if storage.surface_topo then storage.surface_topo[index] = nil end
       else
         local turrets = {}
         for k, t in pairs(list) do
@@ -449,7 +376,6 @@ local function on_built(e)
   if not (ent and ent.valid) then return end
   if computer.is_computer(ent) then
     computer.add(ent, e.tags)
-    if storage.surface_topo and ent.surface then storage.surface_topo[ent.surface.index] = nil end
   else
     add_turret(ent)
   end
@@ -523,8 +449,21 @@ end
 script.on_event(defines.events.on_research_finished, on_research_changed)
 script.on_event(defines.events.on_research_reversed, on_research_changed)
 
+-- Versions that bound wired turrets to a computer switched their auto-targeting off.
+local function release_wired_turrets()
+  for _, topo in pairs(storage.surface_topo or {}) do
+    for _, wired in pairs(topo.comp_to_turrets or {}) do
+      for _, t in pairs(wired) do
+        if t.valid then t.artillery_auto_targeting = true end
+      end
+    end
+  end
+  storage.surface_topo = nil
+end
+
 script.on_init(function() init_storage(); rescan(); computer.rescan() end)
 script.on_configuration_changed(function()
+  release_wired_turrets()
   init_storage()
   rescan()
   computer.rescan()
@@ -587,12 +526,6 @@ remote.add_interface("awesome-artillery", {
   end,
   test_gui_check = function(e)
     computer.handle_checked_state_changed(e)
-  end,
-  surface_topology = function(surface_index, force)
-    local list = storage.turrets[surface_index] or {}
-    local turrets = {}
-    for _, t in pairs(list) do if t.valid then turrets[#turrets + 1] = t end end
-    return surface_topology(surface_index, turrets, force)
   end,
   set_min_size = function(size) settings.global["awe-art-min-size"] = {value = size} end,
   set_interval = function(ticks) settings.global["awe-art-update-interval"] = {value = ticks} end,

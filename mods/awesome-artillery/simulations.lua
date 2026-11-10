@@ -156,8 +156,6 @@ M.space = simulation[[
 
   local comp = make("awe-art-targeting-computer", {0.5, -10.5})
   wire(make("constant-combinator", {3.5, -10.5}), comp)
-  wire(comp, t_steel)
-  wire(comp, t_prom)
 
   local wave = {
     {"medium-metallic-asteroid", -10, -56, 0.01, 0.035},
@@ -253,10 +251,8 @@ M.steel = simulation[[
   local pipe = make("pipe", {0.5, -4.5})
   make("pipe", {0.5, -3.5})
 
-  -- Targeting Computer between cannons, wired to both
+  -- Targeting Computer between cannons
   local comp = make("awe-art-targeting-computer", {0, -12.5})
-  wire(comp, turret_steel)
-  wire(comp, turret_tungsten)
 
   local function stock_craft()
     configure(comp)
@@ -319,8 +315,6 @@ M.prom = simulation[[
   make("fast-inserter", {-7.5, -10.5}, defines.direction.south)
 
   local comp = make("awe-art-targeting-computer", {0, -12.5})
-  wire(comp, turrets[1])
-  wire(comp, turrets[2])
 
   local wave = {
     {"huge-promethium-asteroid", -6, -62, 0.005, 0.025},

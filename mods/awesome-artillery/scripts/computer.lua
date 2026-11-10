@@ -6,7 +6,6 @@
 
 local util = require("util")
 local geometry = require("__awesome-artillery__/scripts/geometry")
-local targeting = require("__awesome-artillery__/scripts/targeting")
 local deepcopy = util.table.deepcopy
 
 local M = {}
@@ -117,8 +116,9 @@ local function sig_key(id) return (id.type or "item") .. ":" .. id.name end
 
 local function read_signals(e)
   local out = {}
-  for _, net in pairs(targeting.circuit_networks(e)) do
-    for _, s in pairs(net.signals or {}) do
+  for _, id in pairs{defines.wire_connector_id.circuit_red, defines.wire_connector_id.circuit_green} do
+    local net = e.get_circuit_network(id)
+    for _, s in pairs(net and net.signals or {}) do
       local k = sig_key(s.signal)
       out[k] = (out[k] or 0) + s.count
     end
@@ -241,7 +241,7 @@ end
 
 -- GUI ---------------------------------------------------------------------------------
 
-local function describe(r, wired_count)
+local function describe(r)
   if not r then
     return "[img=utility/status_not_working] [color=1,0.45,0.45]Off (no power or switched off by signal)[/color]"
   end
@@ -255,12 +255,9 @@ local function describe(r, wired_count)
   local badge = r.ghost
     and "[img=utility/status_blue] [color=0.7,0.85,1]Ghost (applies once built):[/color] "
     or "[img=utility/status_working] [font=default-semibold]Active:[/font] "
-  local cannons_info = (wired_count and wired_count > 0)
-    and string.format(" · [font=default-bold]Wired cannons:[/font] %d", wired_count)
-    or " · [color=0.9,0.7,0.4]All unwired platform cannons[/color]"
-  local text = string.format("%s%s · %s · %d° ±%d° · %d–%d tiles%s", badge,
+  local text = string.format("%s%s · %s · %d° ±%d° · %d–%d tiles", badge,
     #sizes > 0 and table.concat(sizes, ", ") or "none",
-    table.concat(types, " "), r.dir, math.floor(r.arc / 2), r.near, r.far, cannons_info)
+    table.concat(types, " "), r.dir, math.floor(r.arc / 2), r.near, r.far)
   if #r.inputs > 0 then
     text = text .. "  [color=0.6,0.9,0.6](circuit: " .. table.concat(r.inputs, ", ") .. ")[/color]"
   end
@@ -281,16 +278,10 @@ local function signal_toggle(parent, key, cfg, caption, tooltip)
   return flow
 end
 
-local function get_wired_count(c)
-  if not (c and c.entity and c.entity.valid) then return 0 end
-  local topo = storage.surface_topo and storage.surface_topo[c.entity.surface.index]
-  return targeting.wired_turret_count(c.entity.unit_number, topo)
-end
-
-local function update_status(f, c, r)
+local function update_status(f, r)
   local subheader = f.inside and f.inside.subheader
   if subheader and subheader.awe_art_tc_now then
-    subheader.awe_art_tc_now.caption = describe(r, get_wired_count(c))
+    subheader.awe_art_tc_now.caption = describe(r)
   end
 end
 
@@ -300,7 +291,7 @@ local function sync_control_states(f, c)
   if not body then return end
   local cfg = c.cfg
   local r = effective(c, true)
-  update_status(f, c, r)
+  update_status(f, r)
 
   -- Enable/disable manual size checkboxes when circuit min-size override is active
   local sizes_row = body.sizes_row
@@ -390,7 +381,7 @@ function M.open(p, entity)
   subheader.style.horizontally_stretchable = true
   subheader.style.vertical_align = "center"
   subheader.style.padding = {6, 12, 6, 12}
-  local now = subheader.add{type = "label", name = "awe_art_tc_now", caption = describe(effective(c, true), get_wired_count(c))}
+  local now = subheader.add{type = "label", name = "awe_art_tc_now", caption = describe(effective(c, true))}
   now.style.single_line = false
   now.style.maximal_width = 500
 
@@ -623,7 +614,7 @@ local function on_textfield_edit(e, confirm)
         save_tags(c)
         M.sync_zones()
         local f = p.gui.screen.awe_art_tc
-        if f then update_status(f, c, effective(c, true)) end
+        if f then update_status(f, effective(c, true)) end
       elseif confirm then
         e.element.text = tostring(c.cfg[key])
       end

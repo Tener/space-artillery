@@ -118,12 +118,6 @@ function M.build()
   for _, x in ipairs{-36, -28, 28, 36} do make("laser-turret", {x, -52}, nil, {quality = "legendary"}) end
   force.set_ammo_damage_modifier("laser", 3)
   force.set_gun_speed_modifier("laser", 3)
-  local wire = computer.get_wire_connector(defines.wire_connector_id.circuit_red, true)
-  for i, turret in ipairs(turrets) do
-    local source = (i == 1 and turrets[2]) or (i == 4 and turrets[3])
-    local connector = source and source.get_wire_connector(defines.wire_connector_id.circuit_red, true) or wire
-    assert(connector.connect_to(turret.get_wire_connector(defines.wire_connector_id.circuit_red, true)))
-  end
 
   -- Reserve the hub as an obstacle even though production never uses its stock.
   local hub = platform.hub
