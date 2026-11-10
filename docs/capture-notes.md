@@ -6,7 +6,7 @@ an output directory to write elsewhere. Each clip has one subject, and no captio
 
 | Clip | What it shows | Required evidence |
 | --- | --- | --- |
-| Follow | The camera waits on one cannon, rides its shell to the marked aim point, holds on the break-up and returns. Up to two rides. | A filmed shell kills its asteroid. |
+| Follow | The camera waits on one cannon, rides its shell to the marked aim point, holds on the break-up and returns. The flight is slowed to a third of real time. | A filmed shell kills its asteroid. |
 | Tactical | Far view of the bow with the computer's sector drawn; halfway through, the sector narrows and swings left. | Artillery kills in both sectors, none outside the active one. |
 | Production | Three close cuts: a collector catching chunks, the foundry casting a shell, a cannon being loaded and firing. | A shell is cast, loaded and fired during the take. |
 
@@ -16,16 +16,25 @@ casts and loads in `manifest.json`; the script cuts each loop around those event
 Realism profile, used by every clip:
 
 - Research: artillery damage +30%, fire rate +100%, rotation II, shell velocity II.
-- Normal-quality lasers with +50% damage and fire rate.
+- Normal-quality lasers with +50% damage and fire rate; gun turrets along the
+  leading edge with +100% bullet damage and +50% fire rate.
 - Steel shells, all cast on board from collected chunks; no shell is scripted in.
 - Route: Fulgora to Aquilo, the first route with big asteroids. Asteroids are the
   route's own; none are spawned by the scenario. The computer allows medium and larger.
 - Platform speed is held at 3 during filming.
 
-Staged, as in the showcase: the chunk fields the collectors feed from, and
-indestructible entities. The factory makes shells more slowly than four cannons
-spend them, so the cannons hold fire between takes while the reserve is rebuilt
-at high game speed. Run the checks without rendering:
+Staged:
+
+- The chunk fields the collectors feed from, and indestructible entities, as in the showcase.
+- Gun turret magazines are inserted by the scenario; the factory has no magazine line.
+- The factory makes shells more slowly than four cannons spend them. Between takes
+  the ship stops and the cannons hold fire while the reserve is rebuilt at high game
+  speed; it departs and opens fire 15 seconds before each take.
+- Foundation lost while holding fire is put back before each departure. Damage taken
+  during a take is real and stays in the footage.
+- Promethium shell casting is switched off: unused shells fill the hub, one per slot.
+
+Run the checks without rendering:
 
 ```sh
 ./tools/factorio-test.sh mods awesome-artillery/clips verify 100000

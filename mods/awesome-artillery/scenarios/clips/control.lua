@@ -12,10 +12,11 @@ local WARMUP = 48000
 -- quality, and the next trip ahead of them (Fulgora to Aquilo, the first route with big asteroids).
 local PROFILE = {damage = 0.3, fire_rate = 1, rotation = 2, velocity = 2,
   laser_quality = "normal", laser_damage = 0.5, laser_fire_rate = 0.5,
+  bullet_damage = 1, bullet_fire_rate = 0.5,
   origin = "fulgora", destination = "aquilo"}
 local SPEED = 3 -- platform speed held during filming; asteroids are the route's own
 local TRACKED = 2 -- cannon the follow take stays with
-local SECTOR = {dir = 0, arc = 150, near = 32, far = 70}
+local SECTOR = {dir = 0, arc = 180, near = 32, far = 100}
 -- tactical take: the sector narrows and swings left halfway through
 local TACTICAL = {{dir = 0, arc = 150, near = 32, far = 60}, {dir = 320, arc = 60, near = 32, far = 60}}
 local SETTLE = 180 -- ticks after a sector change in which shells already aimed may still land
@@ -23,15 +24,18 @@ local SETTLE = 180 -- ticks after a sector change in which shells already aimed 
 -- The factory makes shells more slowly than four cannons spend them, so the cannons hold
 -- fire between takes while the reserve is rebuilt at high game speed.
 local REFILL = 24000
+local APPROACH = 900 -- ticks before a take at which the ship departs and the cannons open fire
+local FOUNDATION = "space-platform-foundation"
+-- every: ticks per frame. The follow take films every tick so the shell's flight can be slowed down.
 local TAKES = {
-  {name = "follow", ticks = 1800},
-  {name = "tactical", ticks = 1800, position = {0, -80}, zoom = 0.3},
-  {name = "production", ticks = 1200},
+  {name = "follow", ticks = 1800, every = 1},
+  {name = "tactical", ticks = 1800, every = FRAME_EVERY, position = {0, -80}, zoom = 0.3},
+  {name = "production", ticks = 1200, every = FRAME_EVERY},
 }
 local next_tick = WARMUP
 for _, take in ipairs(TAKES) do
   take.first, take.last = next_tick, next_tick + take.ticks - 1
-  take.frames = take.ticks / FRAME_EVERY
+  take.frames = take.ticks / take.every
   next_tick = next_tick + take.ticks + REFILL
 end
 local END_TICK = next_tick - REFILL
@@ -154,6 +158,25 @@ local function production_cameras()
   }
 end
 
+-- hull ------------------------------------------------------------------------------------
+-- While the cannons hold fire the bow takes hits. Lost foundation is put back before each
+-- departure, so a take starts with a whole ship and shows only the damage it takes itself.
+
+local function hull_lost()
+  return #storage.hull - storage.platform.surface.count_tiles_filtered{name = FOUNDATION}
+end
+
+local function repair_hull()
+  local surface, tiles = storage.platform.surface, {}
+  for _, position in ipairs(storage.hull) do
+    if surface.get_tile(position.x, position.y).name ~= FOUNDATION then
+      tiles[#tiles + 1] = {name = FOUNDATION, position = position}
+    end
+  end
+  surface.set_tiles(tiles)
+  return #tiles
+end
+
 -- takes -----------------------------------------------------------------------------------
 
 local function begin_take(take)
@@ -173,13 +196,15 @@ local function begin_take(take)
   end
   local loaded = {}
   for i, turret in ipairs(storage.turrets) do loaded[i] = ammo(turret) end
-  say("%s begins at tick %d; route position %.2f; asteroids small/medium/big/huge %d/%d/%d/%d; shells per cannon %s; cast so far %d",
+  say("%s begins at tick %d; route position %.2f; asteroids small/medium/big/huge %d/%d/%d/%d; shells per cannon %s; cast so far %d; hull tiles lost %d",
     take.name, game.tick, storage.platform.distance, sizes.small or 0, sizes.medium or 0, sizes.big or 0, sizes.huge or 0,
-    table.concat(loaded, "/"), storage.shells.products_finished)
+    table.concat(loaded, "/"), storage.shells.products_finished, hull_lost())
 end
 
 local function verify_take(take)
   local stats = storage.stats[take.name]
+  stats.hull_lost = hull_lost()
+  say("%s: hull tiles lost since departure: %d", take.name, stats.hull_lost)
   if take.name == "follow" then
     local cycles, kills, by_gun = 0, 0, {0, 0, 0, 0}
     for _, e in ipairs(storage.events) do
@@ -208,7 +233,35 @@ script.on_init(function()
   -- No clip fires promethium shells; left running, they pile up in the hub (one per slot)
   -- until steel shells no longer fit.
   storage.nodes.prom_shells.disabled_by_script = true
+  -- The showcase ship has four lasers for a 130-tile front. Gun turrets along the whole
+  -- leading edge, wherever the factory leaves room, deal with what the cannons ignore or
+  -- break up. The factory has no magazine line, so their ammunition is staged (see on_tick).
+  local surface = storage.platform.surface
+  storage.guns = {}
+  local function gun_row(y, x1, x2)
+    for x = x1, x2, 4 do
+      local spot = {name = "gun-turret", position = {x, y}, force = "player"}
+      if surface.can_place_entity(spot) then
+        local gun = surface.create_entity(spot)
+        gun.destructible = false
+        storage.guns[#storage.guns + 1] = gun
+      end
+    end
+  end
+  gun_row(-59, -34, 34)
+  gun_row(-56, -34, 34)
+  for _, side in ipairs{-1, 1} do
+    gun_row(-53, side > 0 and 38 or -42, side > 0 and 42 or -38)
+    gun_row(-51, side > 0 and 46 or -62, side > 0 and 62 or -46)
+  end
+  game.forces.player.set_ammo_damage_modifier("bullet", PROFILE.bullet_damage)
+  game.forces.player.set_gun_speed_modifier("bullet", PROFILE.bullet_fire_rate)
+  say("gun turrets placed: %d", #storage.guns)
   storage.stats, storage.events, storage.reloaded = {}, {}, {}
+  storage.hull = {}
+  for _, tile in pairs(storage.platform.surface.find_tiles_filtered{name = FOUNDATION}) do
+    storage.hull[#storage.hull + 1] = tile.position
+  end
   game.speed = 32
 end)
 
@@ -247,9 +300,17 @@ end)
 
 script.on_event(defines.events.on_tick, function(e)
   local platform, tick = storage.platform, e.tick
-  if tick == WARMUP - 1800 then platform.paused = false end
-  if tick >= WARMUP - 1500 and platform.space_connection then
-    platform.speed = SPEED
+  -- The ship flies, and its cannons fire, only around the takes: holding fire in an asteroid
+  -- field while the reserve is rebuilt would wreck the bow.
+  for _, take in ipairs(TAKES) do
+    if tick == take.first - APPROACH then
+      say("hull tiles repaired before departure: %d", repair_hull())
+      platform.paused, storage.flying = false, true
+      set_computer(take.name == "tactical" and TACTICAL[1] or SECTOR)
+    end
+  end
+  if platform.space_connection then
+    platform.speed = storage.flying and SPEED or 0
     if platform.distance > 0.7 then platform.distance = 0.25 end
   end
   -- Physical resource fields: collectors must catch every input. No intermediate
@@ -261,6 +322,12 @@ script.on_event(defines.events.on_tick, function(e)
         position = {spec[1] + math.sin(tick / 70) * 3, -68.5}, movement = {0, 0.035}}
     end
     platform.create_asteroid_chunks(chunks)
+  end
+  if tick % 60 == 0 then
+    for _, gun in ipairs(storage.guns) do
+      local have = gun.get_inventory(defines.inventory.turret_ammo).get_item_count()
+      if have < 20 then gun.insert{name = "piercing-rounds-magazine", count = 20 - have} end
+    end
   end
   if tick == 1 then
     remote.call("awesome-artillery", "set_interval", 10)
@@ -275,8 +342,8 @@ script.on_event(defines.events.on_tick, function(e)
     end
     if tick >= take.first and tick <= take.last then
       local elapsed = tick - take.first
-      local filming = not script.test_arg and elapsed % FRAME_EVERY == 0
-      local index = elapsed / FRAME_EVERY
+      local filming = not script.test_arg and elapsed % take.every == 0
+      local index = elapsed / take.every
       if take.name == "follow" then
         follow_tick(tick)
         if filming then
@@ -315,13 +382,14 @@ script.on_event(defines.events.on_tick, function(e)
         verify_take(take)
         storage.take = nil
         set_computer(SECTOR, true)
+        platform.paused, storage.flying = true, false
         game.speed = 32
       end
     end
   end
   if tick == END_TICK then
     helpers.write_file("clips/manifest.json", helpers.table_to_json{
-      fps = 60 / FRAME_EVERY, frame_every = FRAME_EVERY, width = WIDTH, height = HEIGHT,
+      fps = 60 / FRAME_EVERY, width = WIDTH, height = HEIGHT,
       takes = TAKES, events = storage.events, stats = storage.stats, profile = PROFILE, speed = SPEED,
     }, false)
     say("CAPTURE_COMPLETE")

@@ -32,7 +32,7 @@ from pathlib import Path
 
 frames_dir, out_dir = Path(sys.argv[1]), Path(sys.argv[2])
 manifest = json.loads((frames_dir / 'manifest.json').read_text())
-fps, every = manifest['fps'], manifest['frame_every']
+fps = manifest['fps']
 takes = {take['name']: take for take in manifest['takes']}
 events = manifest['events']
 CAMERAS = {'follow': ['follow'], 'tactical': ['tactical'], 'production': ['catch', 'cast', 'load-left', 'load-right']}
@@ -45,12 +45,14 @@ for take_name, cameras in CAMERAS.items():
             raise SystemExit(f"{camera}: {have} frames, expected {takes[take_name]['frames']}")
 
 
-def segment(camera, take_name, first_tick, last_tick):
-    """Frames of one camera between two game ticks, clamped to its take."""
+def segment(camera, take_name, first_tick, last_tick, slow=False):
+    """Frames of one camera between two game ticks, clamped to its take, and the rate to play
+    them at: real time, or one filmed tick per output frame when slow."""
     take = takes[take_name]
+    every = take['every']
     first = max(0, (first_tick - take['first']) // every)
     last = min(take['frames'] - 1, (last_tick - take['first']) // every)
-    return camera, first, last - first + 1
+    return camera, first, last - first + 1, fps if slow else 60 / every
 
 
 def of_kind(kind, take_name=None):
@@ -59,11 +61,18 @@ def of_kind(kind, take_name=None):
 
 clips = {}
 
-# Follow: the rides that ended in a kill, marked aim point first; each starts and ends on the cannon.
-rides = sorted((e for e in of_kind('cycle') if e.get('kill')), key=lambda e: not e.get('marked'))[:2]
+# Follow: one ride that ended in a kill, preferring a marked aim point and a big asteroid. It starts
+# and ends on the cannon; the shell's flight and the first half second after impact are slowed down.
+rides = sorted((e for e in of_kind('cycle') if e.get('kill')),
+               key=lambda e: (not e.get('marked'), not e['kill'].startswith('big')))
 if not rides:
     raise SystemExit('follow: no filmed shell killed its asteroid')
-clips['follow'] = [segment('follow', 'follow', ride['fire'] - 45, ride['done']) for ride in sorted(rides, key=lambda e: e['fire'])]
+ride = rides[0]
+clips['follow'] = [
+    segment('follow', 'follow', ride['fire'] - 45, ride['fire'] - 1),
+    segment('follow', 'follow', ride['fire'], ride['impact'] + 30, slow=True),
+    segment('follow', 'follow', ride['impact'] + 31, ride['done']),
+]
 
 # Tactical: five seconds of the wide sector, then the change and seven seconds of the narrow one.
 change = of_kind('sector')[0]['tick']
@@ -86,21 +95,23 @@ clips['production'] = [
     segment('load-left' if gun <= 2 else 'load-right', 'production', max(load_tick - 60, shot_tick - 4 * 60), shot_tick + 60),
 ]
 
-GIF = ('fps=12,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];'
-       '[b][p]paletteuse=dither=bayer:bayer_scale=3')
+# Starfield noise and dithering are what make these GIFs large: denoise, few colours, no dither.
+GIF = ('fps=10,scale=520:-1:flags=lanczos,hqdn3d=4:4:6:6,split[a][b];[a]palettegen=max_colors=56:stats_mode=diff[p];'
+       '[b][p]paletteuse=dither=none:diff_mode=rectangle')
 for name, segments in clips.items():
     inputs = []
-    for camera, first, count in segments:
-        inputs += ['-framerate', str(fps), '-start_number', str(first), '-t', str(count / fps),
+    for camera, first, count, rate in segments:
+        inputs += ['-framerate', str(rate), '-start_number', str(first), '-t', str(count / rate),
                    '-i', str(frames_dir / f'{camera}-frame-%04d.jpg')]
-    joined = ''.join(f'[{i}:v]' for i in range(len(segments))) + f'concat=n={len(segments)}:v=1:a=0[v]'
+    joined = ''.join(f'[{i}:v]fps={fps}[s{i}];' for i in range(len(segments)))
+    joined += ''.join(f'[s{i}]' for i in range(len(segments))) + f'concat=n={len(segments)}:v=1:a=0[v]'
     mp4, gif = out_dir / f'clip-{name}.mp4', out_dir / f'clip-{name}.gif'
     subprocess.run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', *inputs, '-filter_complex', joined,
                     '-map', '[v]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-movflags', '+faststart',
                     str(mp4)], check=True)
     subprocess.run(['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-i', str(mp4), '-filter_complex', GIF,
                     '-loop', '0', str(gif)], check=True)
-    seconds = sum(count for _, _, count in segments) / fps
+    seconds = sum(count / rate for _, _, count, rate in segments)
     print(f'{name}: {seconds:.1f}s, mp4 {mp4.stat().st_size / 1e6:.1f} MB, gif {gif.stat().st_size / 1e6:.1f} MB')
 PY
 echo "Clips written to $OUT_DIR"
