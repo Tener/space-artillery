@@ -1,3 +1,36 @@
+# Clips
+
+Run `tools/capture-clips.sh` on macOS with Factorio 2.1.24+, FFmpeg and Python 3 installed.
+`--encode-only` reuses captured frames. Loops are written to `tmp/clips/` for review; pass
+an output directory to write elsewhere. Each clip has one subject, and no caption is burned in.
+
+| Clip | What it shows | Required evidence |
+| --- | --- | --- |
+| Follow | The camera waits on one cannon, rides its shell to the marked aim point, holds on the break-up and returns. Up to two rides. | A filmed shell kills its asteroid. |
+| Tactical | Far view of the bow with the computer's sector drawn; halfway through, the sector narrows and swings left. | Artillery kills in both sectors, none outside the active one. |
+| Production | Three close cuts: a collector catching chunks, the foundry casting a shell, a cannon being loaded and firing. | A shell is cast, loaded and fired during the take. |
+
+The scenario films takes longer than the published loops and records shots, kills,
+casts and loads in `manifest.json`; the script cuts each loop around those events.
+
+Realism profile, used by every clip:
+
+- Research: artillery damage +30%, fire rate +100%, rotation II, shell velocity II.
+- Normal-quality lasers with +50% damage and fire rate.
+- Steel shells, all cast on board from collected chunks; no shell is scripted in.
+- Route: Fulgora to Aquilo, the first route with big asteroids. Asteroids are the
+  route's own; none are spawned by the scenario. The computer allows medium and larger.
+- Platform speed is held at 3 during filming.
+
+Staged, as in the showcase: the chunk fields the collectors feed from, and
+indestructible entities. The factory makes shells more slowly than four cannons
+spend them, so the cannons hold fire between takes while the reserve is rebuilt
+at high game speed. Run the checks without rendering:
+
+```sh
+./tools/factorio-test.sh mods awesome-artillery/clips verify 100000
+```
+
 # Showcase demos
 
 Run `make visuals` on macOS with Factorio 2.1.24+, FFmpeg and Python 3 installed.

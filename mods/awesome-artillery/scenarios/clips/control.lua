@@ -22,7 +22,7 @@ local SETTLE = 180 -- ticks after a sector change in which shells already aimed 
 
 -- The factory makes shells more slowly than four cannons spend them, so the cannons hold
 -- fire between takes while the reserve is rebuilt at high game speed.
-local REFILL = 16000
+local REFILL = 24000
 local TAKES = {
   {name = "follow", ticks = 1800},
   {name = "tactical", ticks = 1800, position = {0, -80}, zoom = 0.3},
@@ -140,15 +140,17 @@ local function in_sector(sector, x, y, margin)
 end
 
 -- production ------------------------------------------------------------------------------
--- Three fixed cameras film at once: a collector catching chunks, the foundry casting shells,
--- and a cannon being loaded and firing.
+-- Fixed cameras film at once: a collector catching chunks, the foundry casting shells, and
+-- each pair of cannons being loaded and firing (which cannon reloads first varies by run).
 
 local function production_cameras()
-  local collector, foundry, gun = storage.nodes.metal_collector.position, storage.shells.position, storage.turrets[1].position
+  local collector, foundry = storage.nodes.metal_collector.position, storage.shells.position
+  local turrets = storage.turrets
   return {
     {name = "catch", position = {collector.x, collector.y - 3}, zoom = 1.2},
     {name = "cast", position = {foundry.x, foundry.y}, zoom = 1.6, alt = true},
-    {name = "load", position = {gun.x, gun.y + 1}, zoom = 1.3},
+    {name = "load-left", position = {(turrets[1].position.x + turrets[2].position.x) / 2, turrets[1].position.y + 1}, zoom = 1.4},
+    {name = "load-right", position = {(turrets[3].position.x + turrets[4].position.x) / 2, turrets[3].position.y + 1}, zoom = 1.4},
   }
 end
 
@@ -160,7 +162,8 @@ local function begin_take(take)
   remote.call("awesome-artillery", "set_debug", take.name == "tactical")
   set_computer(take.name == "tactical" and TACTICAL[1] or SECTOR)
   if take.name == "production" then
-    storage.crafted, storage.loaded = storage.shells.products_finished, ammo(storage.turrets[1])
+    storage.crafted, storage.loaded = storage.shells.products_finished, {}
+    for i, turret in ipairs(storage.turrets) do storage.loaded[i] = ammo(turret) end
   end
   assert(storage.platform.space_connection and storage.platform.speed > 0, "every take must show a ship in flight")
   local sizes = {}
@@ -168,9 +171,11 @@ local function begin_take(take)
     local size = a.name:match("^(%a+)%-")
     sizes[size] = (sizes[size] or 0) + 1
   end
-  say("%s begins at tick %d; route position %.2f; asteroids small/medium/big/huge %d/%d/%d/%d; shells in the hub %d", take.name, game.tick,
-    storage.platform.distance, sizes.small or 0, sizes.medium or 0, sizes.big or 0, sizes.huge or 0,
-    storage.platform.hub.get_inventory(defines.inventory.hub_main).get_item_count("awe-art-steel-artillery-shell"))
+  local loaded = {}
+  for i, turret in ipairs(storage.turrets) do loaded[i] = ammo(turret) end
+  say("%s begins at tick %d; route position %.2f; asteroids small/medium/big/huge %d/%d/%d/%d; shells per cannon %s; cast so far %d",
+    take.name, game.tick, storage.platform.distance, sizes.small or 0, sizes.medium or 0, sizes.big or 0, sizes.huge or 0,
+    table.concat(loaded, "/"), storage.shells.products_finished)
 end
 
 local function verify_take(take)
@@ -190,16 +195,20 @@ local function verify_take(take)
     assert((stats.wide or 0) >= 3 and (stats.narrow or 0) >= 3, "tactical needs kills in both sectors")
     assert((stats.outside or 0) == 0, "tactical: artillery killed outside the active sector")
   elseif take.name == "production" then
-    say("production: %d shells cast, %d loaded into cannon 1, %d fired by it", stats.cast or 0, stats.load or 0, stats.fired or 0)
+    say("production: %d shells cast, %d loaded into cannons, %d shots, %d of them from a cannon reloaded on camera",
+      stats.cast or 0, stats.load or 0, stats.shots, stats.fired or 0)
     assert((stats.cast or 0) >= 1 and (stats.load or 0) >= 1 and (stats.fired or 0) >= 1,
-      "production needs a shell cast, loaded and fired during the take")
+      "production needs a shell cast, and a cannon loaded and then firing, during the take")
   end
 end
 
 script.on_init(function()
   for name, value in pairs(factory_builder.build(PROFILE)) do storage[name] = value end
   storage.shells = storage.nodes.shells
-  storage.stats, storage.events = {}, {}
+  -- No clip fires promethium shells; left running, they pile up in the hub (one per slot)
+  -- until steel shells no longer fit.
+  storage.nodes.prom_shells.disabled_by_script = true
+  storage.stats, storage.events, storage.reloaded = {}, {}, {}
   game.speed = 32
 end)
 
@@ -211,7 +220,9 @@ script.on_event(defines.events.on_trigger_fired_artillery, function(e)
   for i, turret in ipairs(storage.turrets) do if e.source == turret then gun = i end end
   event{kind = "fire", take = take, tick = e.tick, gun = gun}
   if take == "follow" then follow_fired(e) end
-  if take == "production" and gun == 1 then storage.stats[take].fired = (storage.stats[take].fired or 0) + 1 end
+  if take == "production" and gun and storage.reloaded[gun] then
+    storage.stats[take].fired = (storage.stats[take].fired or 0) + 1
+  end
 end)
 
 script.on_event(defines.events.on_entity_died, function(e)
@@ -281,16 +292,21 @@ script.on_event(defines.events.on_tick, function(e)
         if filming then frame("tactical", index, take.position, take.zoom) end
       elseif take.name == "production" then
         local stats = storage.stats.production
-        local crafted, loaded = storage.shells.products_finished, ammo(storage.turrets[1])
+        local crafted = storage.shells.products_finished
         if crafted > storage.crafted then
           stats.cast = (stats.cast or 0) + crafted - storage.crafted
           event{kind = "cast", tick = tick}
         end
-        if loaded > storage.loaded then
-          stats.load = (stats.load or 0) + loaded - storage.loaded
-          event{kind = "load", tick = tick}
+        storage.crafted = crafted
+        for i, turret in ipairs(storage.turrets) do
+          local loaded = ammo(turret)
+          if loaded > storage.loaded[i] then
+            stats.load = (stats.load or 0) + loaded - storage.loaded[i]
+            storage.reloaded[i] = true
+            event{kind = "load", tick = tick, gun = i}
+          end
+          storage.loaded[i] = loaded
         end
-        storage.crafted, storage.loaded = crafted, loaded
         if filming then
           for _, camera in ipairs(production_cameras()) do frame(camera.name, index, camera.position, camera.zoom, camera.alt) end
         end
