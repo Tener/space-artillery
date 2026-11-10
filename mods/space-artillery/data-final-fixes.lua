@@ -154,7 +154,6 @@ do
     return {section .. "." .. shell_name, tostring(d.physical), tostring(d.explosion),
       tostring(base.physical), tostring(base.explosion)}
   end
-  local ballistics_kills = tostring(constants.ballistics_kills)
   local rotation_percent, velocity_percent = tostring(constants.rotation_percent), tostring(constants.velocity_percent)
 
   -- Space-manufacturable artillery shell: flash-hardened steel (steel + carbon + calcite + ice)
@@ -244,6 +243,13 @@ do
       },
     }
   end
+
+  local asteroid_ballistics = trigger_tech("asteroid-ballistics", "space-art-targeting-computer",
+    tostring(constants.ballistics_kills))
+  -- Give saved progress a unit count for the research bar. The trigger completes the technology.
+  asteroid_ballistics.unit = {count = constants.ballistics_kills, time = 1, ingredients = {}}
+  asteroid_ballistics.ignore_tech_cost_multiplier = true
+
   local function shell_tech(kind, prerequisites, recipes, count, ...)
     local name = "space-art-" .. kind .. "-artillery-shell"
     local effects = {}
@@ -287,7 +293,7 @@ do
     },
     results = {{type = "item", name = "space-art-promethium-artillery-shell", amount = 1}},
   },
-    trigger_tech("asteroid-ballistics", "space-art-targeting-computer", ballistics_kills),
+    asteroid_ballistics,
     shell_tech("steel", {"space-art-asteroid-ballistics", "advanced-asteroid-processing"},
       {"space-art-flash-hardened-steel", "space-art-steel-artillery-shell"}, 2000),
     trigger_tech("promethium-ballistics", "space-art-steel-artillery-shell"),

@@ -489,18 +489,22 @@ local TECH_CHECKS = {
   {"ballistics trigger", function(pf)
     local f = game.forces.player
     f.technologies["space-art-targeting-computer"].researched = true
+    local ballistics = f.technologies["space-art-asteroid-ballistics"]
+    assert(ballistics.research_unit_count == 500, "field data needs a research unit per qualifying kill")
+    assert(not f.add_research(ballistics), "field data must complete through its trigger")
     local s, turret = pf.surface, artillery()[1]
     local kinds = {"medium-metallic-asteroid", "medium-carbonic-asteroid", "medium-oxide-asteroid"}
     for i = 1, 500 do
       if i == 500 then
         say("before final kill: ballistics=%s saved_progress=%.3f",
-          tostring(f.technologies["space-art-asteroid-ballistics"].researched),
-          f.technologies["space-art-asteroid-ballistics"].saved_progress)
+          tostring(ballistics.researched), ballistics.saved_progress)
+        assert(not ballistics.researched and math.abs(ballistics.saved_progress - 0.998) < 1e-7,
+          "499 kills must leave the checkpoint one kill short")
       end
       local a = s.create_entity{name = kinds[(i - 1) % #kinds + 1], position = {0, -80}, force = "enemy"}
       a.die(f, turret)
     end
-    local ballistics_done = f.technologies["space-art-asteroid-ballistics"].researched
+    local ballistics_done = ballistics.researched
     local shell_auto = f.technologies["space-art-steel-artillery-shell"].researched
     say("after 500 medium kills: ballistics=%s steel_shell_auto_researched=%s", tostring(ballistics_done), tostring(shell_auto))
     return ballistics_done and not shell_auto
