@@ -92,6 +92,13 @@ local function build_ship()
     storage.computer_b = make("awe-art-targeting-computer", {-6.5, -18.5})
     storage.pending_cfg[comp] = {use = {size = true}}
     storage.pending_cfg[storage.computer_b.unit_number] = {sizes = {small = true}}
+  elseif case == "perf-wired" or case == "tc-wired" then
+    -- every cannon dedicated to the computer: compare shells and kills with an unwired run
+    -- (perf-i30 at forced speed, tc-base at thruster speed)
+    local red = defines.wire_connector_id.circuit_red
+    for _, t in pairs(storage.artillery) do
+      storage.computer.get_wire_connector(red, true).connect_to(t.get_wire_connector(red, true))
+    end
   end
 
   platform.schedule = {current = 1, records = {{station = "vulcanus"}, {station = "nauvis"}}}
