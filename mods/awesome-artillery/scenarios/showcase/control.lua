@@ -1,7 +1,7 @@
 -- A flying platform with asteroid-to-shell production and sustained interceptions.
 -- Resource fields and combat waves are staged; collection and manufacture are physical.
 local FRAME_EVERY = 3
-local factory_builder = require("factory")
+local factory_builder = require("__awesome-artillery__/scenarios/showcase/factory")
 local WIDTH, HEIGHT = 1280, 720
 local WARMUP = 48000
 local SHOTS = {
