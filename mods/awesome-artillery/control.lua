@@ -70,8 +70,13 @@ local function shell_velocity_mult(force)
   return 1 + VELOCITY_STEP * math.max(0, levels)
 end
 
+-- Only the base turret and this mod's variants of it are swapped; other mods' turrets are left alone.
+local function has_rotation_variants(name)
+  return name == "artillery-turret" or name:find("^awe%-art%-artillery%-turret%-r%d+$") ~= nil
+end
+
 local function sync_turret_rotation(t)
-  if not (t and t.valid and t.type == "artillery-turret") then return t end
+  if not (t and t.valid and t.type == "artillery-turret" and has_rotation_variants(t.name)) then return t end
   local want = rotation_turret_name(t.force)
   if t.name == want or not prototypes.entity[want] then return t end
   local s, u = t.surface, t.unit_number
