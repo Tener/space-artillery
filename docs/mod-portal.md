@@ -1,62 +1,118 @@
 # Space Artillery
 
-**Automated artillery defense against asteroids.**
+<!-- Before publishing, replace the image URL placeholders using docs/mod-portal-assets.md. -->
 
-![Following an artillery shell from the cannon to an asteroid interception](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/clip-follow.gif)
+**Automated artillery defense against asteroids.** Requires **Factorio 2.1 + Space Age**.
 
-[Watch the shell-follow recording (MP4)](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/clip-follow.mp4). The shell's flight is slowed to a third of real time.
+Place artillery on a space platform and use a powered targeting computer to select
+its targets. Cannons lead moving asteroids, coordinate fire using expected damage,
+and hold shots whose predicted blasts would reach platform foundation.
 
-Teaches **space platform artillery to shoot incoming asteroids**, guided by an orbital **targeting computer**, with **space-manufacturable steel and promethium artillery shells** and dedicated **rotation speed & shell velocity research**.
+Cast steel and promethium artillery shells onboard, then research faster turret
+rotation and shell flight.
 
-## Asteroid defense
+![A shell launches from its cannon, flies toward an asteroid and intercepts it][shell-follow]
 
-Place artillery turrets and a **targeting computer** (`5 MW`) on your space platform. Artillery engages incoming asteroids at long range, leading shots so they detonate along the asteroid's flight path.
+The shell-follow recording slows flight to one third of real time.
 
-- **Hull splash safety:** Shots that would detonate near platform foundation are held back.
-- **No overkill:** Turrets share targets and fire only enough shells to destroy each asteroid based on your loaded shell type and damage research.
-- **Research progression:**
-  - **Artillery turret rotation speed (1–10):** +30% turning speed per level (up to +300% = 4× at level 10).
-  - **Artillery shell velocity (1–∞):** +20% projectile flight speed per level, reducing time-to-target against fast asteroids.
-  - Vanilla artillery damage and shooting speed upgrades apply in full.
+## Getting started
+
+1. Research **Artillery targeting computer** after artillery, electromagnetic
+   science and metallurgic science.
+2. Craft a computer using rare processing units and radars, superconductors,
+   tungsten plates and low-density structures.
+3. Place it on a platform with artillery turrets, supply **5 MW**, and choose the
+   asteroid sizes, types and firing sector.
 
 ## Targeting computer
 
-![The firing sector narrows and turns left while the platform intercepts asteroids](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/clip-tactical.gif)
+- Filter by asteroid size and chunk type, including modded asteroid chunks.
+- Set direction, arc width, and near and far range. The firing sector is
+  highlighted while the computer window is open.
+- Enable **Show targets** to see the platform's artillery aim points as red
+  circles, connected to their asteroids by orange lines. These markers are
+  visible to you while the window is open.
+- Drive filters and sector settings through red or green circuit signals, or
+  switch the computer off with a selected signal.
+- Configure ghosts before construction, copy settings between computers, and
+  carry settings in blueprints.
 
-[Watch the sector-control recording (MP4)](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/clip-tactical.mp4). The highlighted sector narrows and turns left; artillery engages asteroids within the active sector.
+Any working computer on the platform can permit a target.
 
-![Targeting computer configuration and sector overlay](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/showcase-computer-gui.png)
+![The firing sector narrows and turns while artillery intercepts incoming asteroids][sector-control]
 
-Unlocked by **Artillery targeting computer** (requires Fulgora and Vulcanus science; crafted from rare processing units, rare radars, superconductors, tungsten plates, and low-density structures).
+[View the computer interface][computer-interface].
 
-Each computer configures which asteroids its platform's artillery engages:
-- Asteroid **sizes** (`Small`, `Medium`, `Big`, `Huge`) and **chunk types** (`Metallic`, `Carbonic`, `Oxide`, `Promethium`, plus any modded asteroid chunks).
-- A directional **sector zone**: direction, arc angle, and near/far range, highlighted on the platform while the window is open.
-- **Circuit network control:** Every parameter can be driven dynamically by red/green wire signals, plus a configurable switch-off signal.
-- **Blueprints & ghosts:** Settings persist in blueprints, copy-paste (`Shift+Right/Left Click`), and can be configured directly on unbuilt **ghost** targeting computers.
+## Make ammunition in space
 
-## Space-manufactured shells
+Cast **flash-hardened steel** in a foundry from molten iron, carbon, calcite and
+ice. Use it with explosives and radars to make **steel artillery shells**.
+**Promethium artillery shells** also require a promethium asteroid chunk.
 
-### Flash-hardened steel & Steel artillery shells (`200 physical + 800 explosion`)
+| Shell | Physical damage | Explosion damage |
+| --- | ---: | ---: |
+| Vanilla artillery shell | 1,000 | 1,000 |
+| Steel artillery shell | 200 | 800 |
+| Promethium artillery shell | 4,000 | 1,000 |
 
-![Asteroid collection, shell casting and cannon loading on a compact platform, with alt-mode enabled](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/clip-production.gif)
+Damage values are before research and asteroid resistance. Promethium shells
+pierce huge asteroids' 3,000 flat physical resistance at base damage research.
 
-[Watch the production recording (MP4)](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/clip-production.mp4). Three close views show collection and crushing, shell casting, and cannon loading and firing, with alt-mode enabled throughout. The steel is made onboard from collected asteroid chunks; radars and explosives are carried as cargo.
+- Destroy **500 medium or larger standard asteroids with artillery** to complete
+  **Asteroid ballistics field data**. Kills in planet orbit count. Progress appears
+  in the research interface, and completion unlocks **Steel artillery shell**
+  research, costing **2,000 of each required science pack**.
+- Destroy a **medium or larger promethium asteroid** to complete
+  **Promethium ballistics field data** and unlock **Promethium artillery shell**
+  research, costing **4,000 of each required science pack**.
 
-- Destroying **500** medium, big, or huge metallic, carbonic, or oxide asteroids with artillery completes **Asteroid ballistics field data**, unlocking the **Steel artillery shell** research (`2,000` packs).
-- Cast in a **foundry** in space from asteroid resources (`molten-iron`, `carbon`, `calcite`, `ice`, `explosives`, and `radar`) without needing imported Vulcanus tungsten. Matches tungsten shells against small, medium, and big asteroids at base research, scales more slowly on big asteroids, and cannot pierce huge asteroids' 3,000 flat physical armor.
+![Collectors, crushers, foundry casting and cannon loading on a compact ship][compact-production]
 
-### Promethium artillery shells (`4000 physical + 1000 explosion`)
+The compact ship makes its steel from collected chunks and carries radars and
+explosives as cargo.
 
-![Heavy Promethium artillery shell shattering a huge asteroid](https://raw.githubusercontent.com/Tener/space-artillery/main/docs/showcase-promethium.gif)
+![Collected asteroid chunks pass through crushing, component manufacture and shell casting][asteroid-factory]
 
-- Destroying any medium, big, or huge promethium asteroid completes **Promethium ballistics field data**, unlocking the **Promethium artillery shell** research (`4,000` packs).
-- Cast in a **foundry** in space from **flash-hardened steel** and **promethium asteroid chunks**, its massive kinetic punch pierces huge asteroids' 3,000 flat physical resistance even at 0% damage research and one-shots big asteroids.
+The larger factory makes its shell components and propellant onboard, with
+separate belts for production inputs.
 
-## Map settings
+## Research upgrades
 
-- Update interval (ticks), smallest asteroid size to target, maximum shells to spend on one asteroid, hull safety margin (tiles), and whether platform artillery requires a powered targeting computer.
+- **Artillery turret rotation speed** adds **30% per level** across ten levels,
+  reaching four times the original turning speed.
+- **Artillery shell velocity** adds **20% flight speed per level**, with infinite
+  research.
+- Vanilla artillery damage and shooting speed research apply.
 
-## Compatibility
+![A flying artillery battery engages incoming asteroids][battery-combat]
 
-Requires Factorio 2.1 + Space Age. Modded asteroids and turrets are supported automatically: non-artillery turrets ignore the artillery's lead decoys.
+![A promethium shell breaks up a huge asteroid][promethium-impact]
+
+The larger combat showcases use +300% artillery damage, four times the base firing
+speed, rotation research VI and shell velocity research IV. Resource fields and
+combat waves are staged, and the showcase ships are indestructible. Production
+uses collected chunks.
+
+![Thrusters, production and artillery before a full view of the ship in flight][ship-overview]
+
+## Settings and current limitations
+
+Map settings control the targeting update interval, smallest asteroid size,
+maximum shells per target, hull safety margin, and whether artillery requires a
+working targeting computer.
+
+Widely separated cannons can miss moving asteroids because they share a lead
+calculation based on the battery's average position. Shell velocity research
+reduces this error.
+
+[Questions and bug reports][discussion]
+
+[shell-follow]: REPLACE_SHELL_FOLLOW_URL
+[sector-control]: REPLACE_SECTOR_CONTROL_URL
+[compact-production]: REPLACE_COMPACT_PRODUCTION_URL
+[asteroid-factory]: REPLACE_ASTEROID_FACTORY_URL
+[battery-combat]: REPLACE_BATTERY_COMBAT_URL
+[promethium-impact]: REPLACE_PROMETHIUM_IMPACT_URL
+[ship-overview]: REPLACE_SHIP_OVERVIEW_URL
+[computer-interface]: REPLACE_COMPUTER_INTERFACE_URL
+[discussion]: https://mods.factorio.com/mod/space-artillery/discussion
