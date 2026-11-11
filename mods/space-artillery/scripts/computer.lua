@@ -347,10 +347,46 @@ local function sync_control_states(f, c)
   end
 end
 
+local function sync_target_markers(player_index, surface)
+  storage.target_markers = storage.target_markers or {}
+  local previous = storage.target_markers[player_index]
+  if not surface and not previous then return end
+
+  local current
+  if surface then
+    current = {}
+    local surface_index = surface.index
+    local players = {player_index}
+    for _, tr in pairs(storage.tracked) do
+      local decoy = tr.d
+      if tr.surface == surface_index and tr.a.valid and decoy and decoy.valid then
+        local id = decoy.unit_number
+        local markers = previous and previous[id]
+        if not (markers and markers[1].valid and markers[2].valid) then
+          markers = {
+            rendering.draw_circle{color = {1, 0.2, 0.2}, radius = 1, width = 2,
+              target = decoy, surface = surface, players = players},
+            rendering.draw_line{color = {1, 0.6, 0.2}, width = 1,
+              from = tr.a, to = decoy, surface = surface, players = players},
+          }
+        end
+        current[id] = markers
+      end
+    end
+  end
+  for id, markers in pairs(previous or {}) do
+    if not current or current[id] ~= markers then
+      for _, marker in ipairs(markers) do marker.destroy() end
+    end
+  end
+  storage.target_markers[player_index] = current
+end
+
 function M.open(p, entity)
   local c = storage.computers[entity.unit_number]
   if not c then M.add(entity); c = storage.computers[entity.unit_number] end
   if p.gui.screen.space_art_tc then p.gui.screen.space_art_tc.destroy() end
+  sync_target_markers(p.index)
   local limit = max_distance(entity.force)
 
   local f = p.gui.screen.add{type = "frame", name = "space_art_tc", direction = "vertical"}
@@ -394,6 +430,8 @@ function M.open(p, entity)
   local body = inside.add{type = "flow", name = "body", direction = "vertical"}
   body.style.padding = 12
   body.style.vertical_spacing = 10
+  body.add{type = "checkbox", name = "space_art_tc_show_targets", caption = "Show targets", state = false,
+    tooltip = "Red circles mark this platform's artillery aim points. Orange lines connect them to their asteroids."}
 
   -- A filter row: manual controls on the left, then a spacer pushing the circuit override
   -- (added by the caller) to the right edge.
@@ -546,6 +584,9 @@ function M.refresh_open()
     local c = open_entry(p)
     local f = p.gui.screen.space_art_tc
     if c and f then sync_control_states(f, c) end
+    local checkbox = f and f.inside.body.space_art_tc_show_targets
+    local surface = c and p.opened == f and checkbox and checkbox.state and c.entity.surface
+    sync_target_markers(p.index, surface)
   end
   M.sync_zones()
 end
@@ -558,8 +599,11 @@ local function close(player_index)
   local p = game.get_player(player_index)
   if p.gui.screen.space_art_tc then p.gui.screen.space_art_tc.destroy() end
   if storage.open_computer then storage.open_computer[player_index] = nil end
+  sync_target_markers(player_index)
   M.sync_zones()
 end
+
+script.on_event(defines.events.on_player_left_game, function(e) sync_target_markers(e.player_index) end)
 
 script.on_event(defines.events.on_gui_closed, function(e)
   if e.element and e.element.valid and e.element.name == "space_art_tc" then close(e.player_index) end
@@ -574,6 +618,10 @@ local function handle_checked_state_changed(e)
   local c = open_entry(p)
   local name = e.element.name
   if not c or not name:find("^space_art_tc_") then return end
+  if name == "space_art_tc_show_targets" then
+    sync_target_markers(p.index, e.element.state and c.entity.surface)
+    return
+  end
   local size = name:match("^space_art_tc_size_(%a+)$")
   local use = name:match("^space_art_tc_use_(%a+)$")
   if size then c.cfg.sizes[size] = e.element.state end

@@ -98,16 +98,46 @@ CASES.damage = function(tick)
   end
 end
 
+local function check_target_overlay()
+  local player = game.get_player(1)
+  call("open_computer", player.index, storage.computer.unit_number)
+  local checkbox = player.gui.screen.space_art_tc.inside.body.space_art_tc_show_targets
+  local function toggle(on)
+    checkbox.state = on
+    call("test_gui_check", {player_index = player.index, element = checkbox})
+  end
+  local function target_line()
+    for _, obj in pairs(rendering.get_all_objects("space-artillery")) do
+      if obj.type == "line" and obj.from.entity == storage.target then return obj end
+    end
+  end
+  assert(not checkbox.state and not target_line(), "target overlay must start off")
+  toggle(true)
+  local line = assert(target_line(), "overlay must link the asteroid to its decoy")
+  assert(line.to.entity.name == "space-art-decoy-" .. MEDIUM, "line must end at the actual decoy")
+  assert(#line.players == 1 and line.players[1] == player, "overlay must be private to the player")
+  toggle(false)
+  assert(not target_line(), "unchecking must remove the overlay")
+  toggle(true)
+  player.opened = nil
+  assert(not target_line(), "closing must remove the overlay")
+end
+
 CASES.combat = function(tick)
   if tick == 1 then
     assert(storage.platform.space_location.name == "fulgora" and not storage.platform.space_connection,
       "combat test must run in planet orbit")
     game.forces.player.technologies[COMPUTER].researched = true
     target()
-    arm("artillery-shell", true)
+    arm("artillery-shell")
     storage.phase, storage.deadline = 1, tick + 600
   end
   assert(tick < storage.deadline, "artillery did not kill the controlled target")
+  if not storage.overlay_checked and call("decoy_count") > 0 then
+    check_target_overlay()
+    storage.overlay_checked = true
+    arm("artillery-shell", true)
+  end
   if storage.target.valid then return end
   assert(storage.killed, "target must be killed by artillery")
   local progress = game.forces.player.technologies[BALLISTICS].saved_progress
