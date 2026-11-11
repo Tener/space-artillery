@@ -1,7 +1,5 @@
 # Space Artillery
 
-<!-- Before publishing, replace the image URL placeholders using docs/mod-portal-assets.md. -->
-
 **Automated artillery defense against asteroids.** Requires **Factorio 2.1 + Space Age**.
 
 Place artillery on a space platform and use a powered targeting computer to select
@@ -91,7 +89,7 @@ separate belts for production inputs.
 The larger combat showcases use +300% artillery damage, four times the base firing
 speed, rotation research VI and shell velocity research IV. Resource fields and
 combat waves are staged, and the showcase ships are indestructible. Production
-uses collected chunks.
+uses collected chunks. [Capture notes][capture-notes]
 
 ![Thrusters, production and artillery before a full view of the ship in flight][ship-overview]
 
@@ -105,14 +103,16 @@ Widely separated cannons can miss moving asteroids because they share a lead
 calculation based on the battery's average position. Shell velocity research
 reduces this error.
 
-[Questions and bug reports][discussion]
+[Source code][source] · [Questions and bug reports][discussion]
 
-[shell-follow]: REPLACE_SHELL_FOLLOW_URL
-[sector-control]: REPLACE_SECTOR_CONTROL_URL
-[compact-production]: REPLACE_COMPACT_PRODUCTION_URL
-[asteroid-factory]: REPLACE_ASTEROID_FACTORY_URL
-[battery-combat]: REPLACE_BATTERY_COMBAT_URL
-[promethium-impact]: REPLACE_PROMETHIUM_IMPACT_URL
-[ship-overview]: REPLACE_SHIP_OVERVIEW_URL
-[computer-interface]: REPLACE_COMPUTER_INTERFACE_URL
+[shell-follow]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/shell-follow.webp
+[sector-control]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/sector-control.webp
+[compact-production]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/compact-production.webp
+[asteroid-factory]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/asteroid-factory.webp
+[battery-combat]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/battery-combat.webp
+[promethium-impact]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/promethium-impact.webp
+[ship-overview]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/ship-overview.webp
+[computer-interface]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/showcase-computer-gui.png
+[capture-notes]: https://github.com/Tener/space-artillery/blob/v0.1.0/docs/capture-notes.md
+[source]: https://github.com/Tener/space-artillery
 [discussion]: https://mods.factorio.com/mod/space-artillery/discussion
