@@ -163,6 +163,31 @@ CASES.combat = function(tick)
   end
 end
 
+CASES.tracking = function(tick)
+  if tick == 1 then
+    call("set_interval", 30)
+    target(MEDIUM, {0, -80}, {0.01, 0})
+  elseif tick == 120 then
+    expect_decoys(1, "slow-moving asteroid")
+    storage.initial_decoy_x = call("decoy_list")[1].x
+    storage.initial_asteroid_x = storage.target.position.x
+  elseif tick == 1000 then
+    expect_decoys(1, "slow-moving asteroid remains eligible")
+    local position = storage.target.position
+    local decoy = call("decoy_list")[1]
+    local moved = position.x - storage.initial_asteroid_x
+    local aim_moved = decoy.x - storage.initial_decoy_x
+    assert(moved > 4, "fixture must move beyond artillery splash range")
+    assert(aim_moved > 4, string.format("decoy stayed behind: asteroid moved %.2f tiles, decoy moved %.2f", moved, aim_moved))
+    assert((decoy.x - position.x) ^ 2 + (decoy.y - position.y) ^ 2 < 4 ^ 2,
+      "slow asteroid moved outside its decoy's splash range")
+    assert(storage.target.teleport({0, -1000}), "could not move fixture beyond artillery range")
+  elseif tick == 1060 then
+    expect_decoys(0, "asteroid left artillery range")
+    finish("slow-moving decoys follow their asteroids and expire out of range")
+  end
+end
+
 CASES.lifecycle = function(tick)
   if tick == 1 then target() end
   if tick == 20 then
@@ -227,13 +252,14 @@ script.on_init(function()
   local name = script.test_arg or "save"
   assert(CASES[name], "unknown core case: " .. tostring(name))
   local f = game.forces.player
+  local orbit = name == "combat" or name == "tracking"
   storage.platform = f.create_space_platform{
-    name = "Core test", planet = name == "combat" and "fulgora" or "nauvis",
+    name = "Core test", planet = orbit and "fulgora" or "nauvis",
     starter_pack = "space-platform-starter-pack",
   }
   storage.platform.apply_starter_pack()
   storage.platform.paused = true
-  if name ~= "combat" then
+  if not orbit then
     f.unlock_space_location("vulcanus")
     storage.platform.space_connection = prototypes.space_connection["nauvis-vulcanus"]
     storage.platform.distance = 0.5

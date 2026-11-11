@@ -4,7 +4,7 @@ Run `make test` with Factorio 2.1.24 or later, Space Age and Python 3 installed.
 the macOS Steam installation by default; set `FACTORIO` to the executable's absolute
 path for another installation. No graphics or screenshots are produced.
 
-The suite runs 20 cases in fresh game processes and returns nonzero if any fail.
+The suite runs 21 cases in fresh game processes and returns nonzero if any fail.
 Full logs are retained per case under `tmp/test-logs/`. Game configuration, saves
 and runtime output are isolated under `.factorio-test/`.
 
@@ -27,6 +27,8 @@ and runtime output are isolated under `.factorio-test/`.
   orbit and advances ballistics field data. Three cannons respect one- and two-shell
   target budgets, and velocity research changes the projectile's measured speed.
 - `core-lifecycle`: target and computer destruction, replacement, and platform deletion.
+- `core-tracking`: slowly moving asteroids keep their decoys moving at the default
+  update interval, and leaving artillery range removes their decoys.
 - `core-save`, `core-reload`: save a tracked target and configured computer, reopen
   the save in a new process, verify settings and decoy cleanup, then intercept again.
   Saving uses a temporary headless server bound to localhost on an ephemeral port;

@@ -218,13 +218,14 @@ local function update_asteroid(tr, ctx)
   if not ax then return drop_decoy(tr) end
   local aim = tr.aim
   if not aim then aim = {ax, ay}; tr.aim = aim end
-  local moved = (ax - aim[1]) ^ 2 + (ay - aim[2]) ^ 2 >= TELEPORT_MIN * TELEPORT_MIN
   aim[1], aim[2] = ax, ay
   if not safe(s, aim, ctx) then return drop_decoy(tr) end
   if rules and not computer.allows(rules, name, ax, ay) then return drop_decoy(tr) end
 
   if tr.d and tr.d.valid then
-    if moved then tr.d.teleport(aim) end
+    local position = tr.d.position
+    local moved = (ax - position.x) ^ 2 + (ay - position.y) ^ 2 >= TELEPORT_MIN * TELEPORT_MIN
+    if moved and not tr.d.teleport(aim) then return drop_decoy(tr) end
   else
     tr.d = s.create_entity{name = "space-art-decoy-" .. name, position = aim, force = "enemy"}
     tr.dh = nil
