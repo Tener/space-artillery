@@ -1,5 +1,5 @@
 # Builds the mod zip and portal description on pushes to main and version tags.
-# Version tags also attach the mod zip to a GitHub release.
+# Version tags attach the mod zip and plain Markdown description to a GitHub release.
 # Hardening: no pull request triggers, no secrets beyond
 # the job token, read-only token except when creating a release, actions pinned to commits,
 # no workflow expressions inside shell scripts.
@@ -60,7 +60,8 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           tools/package.sh
+          python3 tools/prepare-portal-description.py "$TAG"
           zip="dist/space-artillery_${TAG#v}.zip"
           # the tag must match the version in info.json
           [ -f "$zip" ] || { echo "tag $TAG does not match info.json version"; ls dist; exit 1; }
-          gh release create "$TAG" "$zip" --verify-tag --title "$TAG" --notes "See changelog.txt."
+          gh release create "$TAG" "$zip" dist/mod-portal.md --verify-tag --title "$TAG" --notes "See changelog.txt."

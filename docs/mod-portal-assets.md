@@ -4,9 +4,10 @@ The source description in [mod-portal.md](mod-portal.md) uses reference-style
 Markdown with relative paths to the assets in this repository.
 
 GitHub Actions produces a separate `space-artillery-mod-portal-description`
-artifact containing `mod-portal.md`. Image and capture-note URLs use the release
-tag on tag builds and the checked-out commit on branch builds. Copy the generated
-Markdown into the mod portal description.
+artifact containing `mod-portal.md`. Tag builds also attach `mod-portal.md`
+directly to the GitHub release for a plain-file download. Image URLs use the
+release tag on tag builds and the checked-out commit on branch builds. Copy the
+generated Markdown into the mod portal description.
 
 Generate the same file locally by supplying a tag or commit:
 
