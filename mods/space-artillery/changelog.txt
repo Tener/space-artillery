@@ -1,9 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2026-11-11
+  Bugfixes:
+    - Removed the obsolete conflict entry from the mod dependencies.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: 2026-11-08
   Changes:
     - Renamed the mod to Space Artillery (space-artillery), with space-art-* prototype identifiers.
-    - Replaces awesome-artillery; the two mods cannot be enabled together. Runtime state from the former mod is not migrated.
   Bugfixes:
     - Fixed lead prediction for equal-speed and faster approaching asteroids.
   Features:
