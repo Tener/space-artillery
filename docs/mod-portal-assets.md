@@ -1,12 +1,21 @@
 # Portal description assets
 
-The description in [mod-portal.md](mod-portal.md) uses reference-style Markdown
-with public GitHub image URLs pinned to `v0.1.0`, which contains the reviewed
-captures.
+The source description in [mod-portal.md](mod-portal.md) uses reference-style
+Markdown with relative paths to the assets in this repository.
 
-When replacing a capture, publish the updated asset in a version tag and update
-its URL in the description's reference block. Verify that the URL loads without
-signing in before publishing the description.
+GitHub Actions produces a separate `space-artillery-mod-portal-description`
+artifact containing `mod-portal.md`. Image and capture-note URLs use the release
+tag on tag builds and the checked-out commit on branch builds. Copy the generated
+Markdown into the mod portal description.
+
+Generate the same file locally by supplying a tag or commit:
+
+```sh
+python3 tools/prepare-portal-description.py v0.1.1
+```
+
+The output is `dist/mod-portal.md`. Commit replacement captures alongside the
+description so each build references its own assets.
 
 | Markdown reference | File |
 | --- | --- |

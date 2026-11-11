@@ -105,14 +105,14 @@ reduces this error.
 
 [Source code][source] · [Questions and bug reports][discussion]
 
-[shell-follow]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/shell-follow.webp
-[sector-control]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/sector-control.webp
-[compact-production]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/compact-production.webp
-[asteroid-factory]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/asteroid-factory.webp
-[battery-combat]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/battery-combat.webp
-[promethium-impact]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/promethium-impact.webp
-[ship-overview]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/previews/ship-overview.webp
-[computer-interface]: https://raw.githubusercontent.com/Tener/space-artillery/v0.1.0/docs/showcase-computer-gui.png
-[capture-notes]: https://github.com/Tener/space-artillery/blob/v0.1.0/docs/capture-notes.md
+[shell-follow]: previews/shell-follow.webp
+[sector-control]: previews/sector-control.webp
+[compact-production]: previews/compact-production.webp
+[asteroid-factory]: previews/asteroid-factory.webp
+[battery-combat]: previews/battery-combat.webp
+[promethium-impact]: previews/promethium-impact.webp
+[ship-overview]: previews/ship-overview.webp
+[computer-interface]: showcase-computer-gui.png
+[capture-notes]: capture-notes.md
 [source]: https://github.com/Tener/space-artillery
 [discussion]: https://mods.factorio.com/mod/space-artillery/discussion
