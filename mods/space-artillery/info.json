@@ -1,9 +1,12 @@
 {
   "name": "space-artillery",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "title": "Space Artillery",
   "author": "tener",
+  "homepage": "https://github.com/Tener/space-artillery",
   "description": "Automated artillery defense against asteroids. Space platform artillery engages incoming asteroids when guided by a targeting computer (sizes, types, sector zone, circuit network overrides, ghost configuration). Adds space-manufacturable steel and promethium artillery shells unlocked via field ballistics data, plus artillery turret rotation speed and shell velocity upgrade technologies.",
   "factorio_version": "2.1",
-  "dependencies": ["base", "space-age"]
+  "dependencies": ["base >= 2.1.0", "space-age >= 2.1.0", "quality >= 2.1.0"],
+  "space_travel_required": true,
+  "quality_required": true
 }

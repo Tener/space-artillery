@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: 2026-11-12
+  Bugfixes:
+    - Added the Quality dependency required by targeting computer ingredients.
+    - Declared minimum dependency versions and space travel and quality requirements.
+  Changes:
+    - Added the source repository homepage.
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2026-11-11
   Bugfixes:
