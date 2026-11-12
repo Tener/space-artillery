@@ -2,3 +2,4 @@
 mods/mod-settings.dat
 dist/
 tmp/
+__pycache__/

@@ -47,6 +47,38 @@ directory and enable **Space Artillery** in the game. `make install` builds and
 copies it automatically; set `FACTORIO_MODS` to use a custom mods directory.
 Packaging requires Bash, Make, rsync and zip.
 
+## Releases
+
+Use Python 3.9 or later and Git to prepare a release. For example, after the
+implementation changes are committed:
+
+```sh
+python3 tools/release.py prepare 0.1.3
+```
+
+This updates `info.json` and creates the changelog section with today's date.
+Repeating it for the same unreleased version refreshes the date and preserves
+the entries. Write the player-facing entries, then commit those two files together:
+
+```sh
+git add mods/space-artillery/info.json mods/space-artillery/changelog.txt
+git commit -m "Release 0.1.3"
+python3 tools/release.py tag --dry-run
+python3 tools/release.py tag
+git push origin v0.1.3
+```
+
+Tagging checks the declared version, Factorio changelog formatting, nonempty
+entries, and a YYYY-MM-DD date equal to today on the machine running the command.
+It also checks for tracked working-tree or index changes and existing tags
+locally and on `origin` when a remote is configured.
+
+GitHub Actions validates the changelog and uses the matching version section for
+GitHub release notes. Rebuilding an existing tag accepts its historical date.
+Run `python3 tools/release.py check` to check the changelog locally, or
+`python3 -m unittest discover -s tools -p test_release.py` to test the release
+tool using temporary local repositories under `tmp/`.
+
 ## Development
 
 Mod sources are in [mods/space-artillery](mods/space-artillery). Tests require

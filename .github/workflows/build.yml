@@ -26,6 +26,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Check changelog
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: python3 tools/release.py check --tag "$RELEASE_TAG"
       - name: Package
         run: tools/package.sh
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -59,9 +63,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
+          python3 tools/release.py notes --tag "$TAG"
           tools/package.sh
           python3 tools/prepare-portal-description.py "$TAG"
           zip="dist/space-artillery_${TAG#v}.zip"
           # the tag must match the version in info.json
           [ -f "$zip" ] || { echo "tag $TAG does not match info.json version"; ls dist; exit 1; }
-          gh release create "$TAG" "$zip" dist/mod-portal.md --verify-tag --title "$TAG" --notes "See changelog.txt."
+          gh release create "$TAG" "$zip" dist/mod-portal.md --verify-tag --title "$TAG" --notes-file dist/release-notes.md
